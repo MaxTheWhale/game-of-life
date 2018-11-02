@@ -34,7 +34,7 @@ port p_sda = XS1_PORT_1F;
 void DataInStream(char infname[], chanend c_out)
 {
   int res;
-  uchar line[ IMWD ];
+  uchar image[ IMHT ][ IMWD ];
   printf( "DataInStream: Start...\n" );
 
   //Open PGM file
@@ -46,16 +46,22 @@ void DataInStream(char infname[], chanend c_out)
 
   //Read image line-by-line and send byte by byte to channel c_out
   for( int y = 0; y < IMHT; y++ ) {
-    _readinline( line, IMWD );
-    for( int x = 0; x < IMWD; x++ ) {
-      c_out <: line[ x ];
-      printf( "-%4.1d ", line[ x ] ); //show image values
-    }
-    printf( "\n" );
+    _readinline( image[ y ], IMWD );
   }
+  _closeinpgm();
+  //printf("image read succesfully\n");
+
+  for( int y = 0; y < IMHT; y++ ) {
+      for( int x = 0; x < IMWD; x++ ) {
+        //printf("got here\n");
+        //printf("%u\n", image[ y ][ x ]);
+        c_out <: image[ y ][ x ];
+        printf( "-%4.1d ", image[ y ][ x ] ); //show image values
+      }
+      printf( "\n" );
+    }
 
   //Close PGM image file
-  _closeinpgm();
   printf( "DataInStream: Done...\n" );
   return;
 }
@@ -110,6 +116,7 @@ void DataOutStream(char outfname[], chanend c_in)
   //Compile each line of the image and write the image line-by-line
   for( int y = 0; y < IMHT; y++ ) {
     for( int x = 0; x < IMWD; x++ ) {
+      //printf("out %d", x);
       c_in :> line[ x ];
     }
     _writeoutline( line, IMWD );

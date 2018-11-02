@@ -489,6 +489,8 @@
     </values>
   </arg>
 </fCall>
+<fCall name="_closeinpgm" global="true" numArgs="0">
+</fCall>
 <fCall name="printf" global="true" numArgs="2">
   <arg num="0">
     <values>
@@ -507,8 +509,6 @@
       <value type="unknown"/>
     </values>
   </arg>
-</fCall>
-<fCall name="_closeinpgm" global="true" numArgs="0">
 </fCall>
 <fCall name="printf" global="true" numArgs="1">
   <arg num="0">
