@@ -53,10 +53,9 @@ void DataInStream(char infname[], chanend c_out)
     }
     printf( "\n" );
   }
-
   //Close PGM image file
   _closeinpgm();
-  printf( "DataInStream: Done...\n" );
+  //printf( "DataInStream: Done...\n" );
   return;
 }
 
@@ -69,13 +68,14 @@ void DataInStream(char infname[], chanend c_out)
 /////////////////////////////////////////////////////////////////////////////////////////
 uchar checkCell(uchar image[ IMHT ][ IMWD ], uchar x, uchar y)
 {
-    uchar living = image[x][y]&1;
+    uchar living = image[y][x];
     uchar neighbours = 0;
     uchar result = 0;
-    uchar ym = (y-1) % IMHT;
-    uchar yp = (y+1) % IMHT;
-    uchar xm = (x-1) % IMWD;
-    uchar xp = (x+1) % IMWD;
+    uchar ym = (y-1); ym %= IMHT;
+    uchar yp = (y+1); yp %= IMHT;
+    uchar xm = (x-1); xm %= IMWD;
+    uchar xp = (x+1); xp %= IMWD;
+    //printf("ym:%u yp:%u xm:%u xp:%d\n", ym, yp, xm, xp);
 
     neighbours += image[ym][xm]&1;
     neighbours += image[ym][x]&1;
@@ -88,10 +88,12 @@ uchar checkCell(uchar image[ IMHT ][ IMWD ], uchar x, uchar y)
     neighbours += image[yp][x]&1;
     neighbours += image[yp][xp]&1;
 
-    if(living){
-        result = (neighbours == 2 || neighbours == 3) ? 1 : 0;
+    //printf("alive:%u n=%u\n", living, neighbours);
+    //printf("l=%u", living);
+    if(living != 0){
+        result = (neighbours == 2 || neighbours == 3) ? 255 : 0;
     } else {
-        result = (neighbours == 3) ? 1 : 0;
+        result = (neighbours == 3) ? 255 : 0;
     }
 
     return result;
@@ -100,7 +102,7 @@ uchar checkCell(uchar image[ IMHT ][ IMWD ], uchar x, uchar y)
 
 void distributor(chanend c_in, chanend c_out, chanend fromAcc)
 {
-  uchar val;
+  uchar image[IMHT][IMWD];
 
   //Starting up and wait for tilting of the xCore-200 Explorer
   printf( "ProcessImage: Start, size = %dx%d\n", IMHT, IMWD );
@@ -111,10 +113,15 @@ void distributor(chanend c_in, chanend c_out, chanend fromAcc)
   //This just inverts every pixel, but you should
   //change the image according to the "Game of Life"
   printf( "Processing...\n" );
+  for( int y = 0; y < IMHT; y++ ) {     //go through all lines
+      for( int x = 0; x < IMWD; x++ ) { //go through each pixel per line
+        c_in :> image[y][x];            //read the pixel value
+      }
+  }
+
   for( int y = 0; y < IMHT; y++ ) {   //go through all lines
     for( int x = 0; x < IMWD; x++ ) { //go through each pixel per line
-      c_in :> val;                    //read the pixel value
-      c_out <: (uchar)( val ^ 0xFF ); //send some modified pixel out
+      c_out <: checkCell(image, x, y); //send some modified pixel out
     }
   }
   printf( "\nOne processing round completed...\n" );
@@ -142,9 +149,10 @@ void DataOutStream(char outfname[], chanend c_in)
   for( int y = 0; y < IMHT; y++ ) {
     for( int x = 0; x < IMWD; x++ ) {
       c_in :> line[ x ];
+      printf( "-%4.1d ", line[ x ] ); //show image values
     }
     _writeoutline( line, IMWD );
-    printf( "DataOutStream: Line written...\n" );
+    printf( " DataOutStream: Line written...\n" );
   }
 
   //Close the PGM image
