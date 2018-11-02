@@ -49,13 +49,13 @@ void DataInStream(char infname[], chanend c_out)
     _readinline( line, IMWD );
     for( int x = 0; x < IMWD; x++ ) {
       c_out <: line[ x ];
-      printf( "-%4.1d ", line[ x ] ); //show image values
+      //printf( "-%4.1d ", line[ x ] ); //show image values
     }
-    printf( "\n" );
+    //printf( "\n" );
   }
   //Close PGM image file
   _closeinpgm();
-  //printf( "DataInStream: Done...\n" );
+  printf( "DataInStream: Done...\n" );
   return;
 }
 
@@ -99,10 +99,20 @@ uchar checkCell(uchar image[ IMHT ][ IMWD ], uchar x, uchar y)
     return result;
 }
 
+void printWorld(uchar image[ IMHT ][ IMWD ]) {
+    for( int y = 0; y < IMHT; y++ ) {
+        for( int x = 0; x < IMWD; x++ ) {
+          char p = (image[y][x]) ? 'X' : '.';
+          printf( "%c ",p); //show image values
+        }
+        printf( "\n" );
+      }
+}
 
 void distributor(chanend c_in, chanend c_out, chanend fromAcc)
 {
-  uchar image[IMHT][IMWD];
+  uchar imageCurrent[IMHT][IMWD];
+  uchar imageNext[IMHT][IMWD];
 
   //Starting up and wait for tilting of the xCore-200 Explorer
   printf( "ProcessImage: Start, size = %dx%d\n", IMHT, IMWD );
@@ -115,13 +125,25 @@ void distributor(chanend c_in, chanend c_out, chanend fromAcc)
   printf( "Processing...\n" );
   for( int y = 0; y < IMHT; y++ ) {     //go through all lines
       for( int x = 0; x < IMWD; x++ ) { //go through each pixel per line
-        c_in :> image[y][x];            //read the pixel value
+        c_in :> imageCurrent[y][x];            //read the pixel value
       }
+  }
+
+  while(1)
+  {
+    printWorld(imageCurrent);
+    for( int y = 0; y < IMHT; y++ ) {   //go through all lines
+      for( int x = 0; x < IMWD; x++ ) { //go through each pixel per line
+        imageNext[y][x] = checkCell(imageCurrent, x, y); //send some modified pixel out
+      }
+    }
+    printf("\n");
+    memcpy(imageCurrent, imageNext, sizeof(imageCurrent));
   }
 
   for( int y = 0; y < IMHT; y++ ) {   //go through all lines
     for( int x = 0; x < IMWD; x++ ) { //go through each pixel per line
-      c_out <: checkCell(image, x, y); //send some modified pixel out
+      c_out <: imageNext[y][x]; //send some modified pixel out
     }
   }
   printf( "\nOne processing round completed...\n" );
@@ -149,7 +171,7 @@ void DataOutStream(char outfname[], chanend c_in)
   for( int y = 0; y < IMHT; y++ ) {
     for( int x = 0; x < IMWD; x++ ) {
       c_in :> line[ x ];
-      printf( "-%4.1d ", line[ x ] ); //show image values
+      //printf( "-%4.1d ", line[ x ] ); //show image values
     }
     _writeoutline( line, IMWD );
     printf( " DataOutStream: Line written...\n" );
