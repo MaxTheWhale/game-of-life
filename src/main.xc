@@ -34,7 +34,7 @@ port p_sda = XS1_PORT_1F;
 void DataInStream(char infname[], chanend c_out)
 {
   int res;
-  uchar image[ IMHT ][ IMWD ];
+  uchar line[ IMWD ];
   printf( "DataInStream: Start...\n" );
 
   //Open PGM file
@@ -46,22 +46,16 @@ void DataInStream(char infname[], chanend c_out)
 
   //Read image line-by-line and send byte by byte to channel c_out
   for( int y = 0; y < IMHT; y++ ) {
-    _readinline( image[ y ], IMWD );
-  }
-  _closeinpgm();
-  //printf("image read succesfully\n");
-
-  for( int y = 0; y < IMHT; y++ ) {
-      for( int x = 0; x < IMWD; x++ ) {
-        //printf("got here\n");
-        //printf("%u\n", image[ y ][ x ]);
-        c_out <: image[ y ][ x ];
-        printf( "-%4.1d ", image[ y ][ x ] ); //show image values
-      }
-      printf( "\n" );
+    _readinline( line, IMWD );
+    for( int x = 0; x < IMWD; x++ ) {
+      c_out <: line[ x ];
+      printf( "-%4.1d ", line[ x ] ); //show image values
     }
+    printf( "\n" );
+  }
 
   //Close PGM image file
+  _closeinpgm();
   printf( "DataInStream: Done...\n" );
   return;
 }
@@ -73,6 +67,37 @@ void DataInStream(char infname[], chanend c_out)
 // Currently the function just inverts the image
 //
 /////////////////////////////////////////////////////////////////////////////////////////
+uchar checkCell(uchar image[ IMHT ][ IMWD ], uchar x, uchar y)
+{
+    uchar living = image[x][y]&1;
+    uchar neighbours = 0;
+    uchar result = 0;
+    uchar ym = (y-1) % IMHT;
+    uchar yp = (y+1) % IMHT;
+    uchar xm = (x-1) % IMWD;
+    uchar xp = (x+1) % IMWD;
+
+    neighbours += image[ym][xm]&1;
+    neighbours += image[ym][x]&1;
+    neighbours += image[ym][xp]&1;
+
+    neighbours += image[y][xm]&1;
+    neighbours += image[y][xp]&1;
+
+    neighbours += image[yp][xm]&1;
+    neighbours += image[yp][x]&1;
+    neighbours += image[yp][xp]&1;
+
+    if(living){
+        result = (neighbours == 2 || neighbours == 3) ? 1 : 0;
+    } else {
+        result = (neighbours == 3) ? 1 : 0;
+    }
+
+    return result;
+}
+
+
 void distributor(chanend c_in, chanend c_out, chanend fromAcc)
 {
   uchar val;
@@ -116,7 +141,6 @@ void DataOutStream(char outfname[], chanend c_in)
   //Compile each line of the image and write the image line-by-line
   for( int y = 0; y < IMHT; y++ ) {
     for( int x = 0; x < IMWD; x++ ) {
-      //printf("out %d", x);
       c_in :> line[ x ];
     }
     _writeoutline( line, IMWD );

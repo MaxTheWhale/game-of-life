@@ -411,6 +411,20 @@
 </fInfo>
 <fInfo name="ack_write_request" global="true" interface="i2c_slave_callback_if" specialize="false" noreturn="false" doNotSpecialize="false" numParams="0">
 </fInfo>
+<fInfo name="checkCell" global="true" specialize="false" noreturn="false" doNotSpecialize="false" numParams="3">
+  <arg num="0" specialize="false">
+    <values>
+    </values>
+  </arg>
+  <arg num="1" specialize="false">
+    <values>
+    </values>
+  </arg>
+  <arg num="2" specialize="false">
+    <values>
+    </values>
+  </arg>
+</fInfo>
 <fInfo name="delay_microseconds" global="true" specialize="false" noreturn="false" doNotSpecialize="true" numParams="1">
   <arg num="0" specialize="false">
     <values>

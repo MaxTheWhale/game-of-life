@@ -6,6 +6,7 @@
 <fDef name="_safe_memset" global="true" noreturn="false" doNotSpecialize="true" numParams="3"/>
 <fDef name="ack_read_request" global="true" interface="i2c_slave_callback_if" noreturn="false" doNotSpecialize="false" numParams="0"/>
 <fDef name="ack_write_request" global="true" interface="i2c_slave_callback_if" noreturn="false" doNotSpecialize="false" numParams="0"/>
+<fDef name="checkCell" global="true" noreturn="false" doNotSpecialize="false" numParams="3"/>
 <fDef name="delay_microseconds" global="true" noreturn="false" doNotSpecialize="true" numParams="1"/>
 <fDef name="delay_milliseconds" global="true" noreturn="false" doNotSpecialize="true" numParams="1"/>
 <fDef name="delay_seconds" global="true" noreturn="false" doNotSpecialize="true" numParams="1"/>
@@ -489,8 +490,6 @@
     </values>
   </arg>
 </fCall>
-<fCall name="_closeinpgm" global="true" numArgs="0">
-</fCall>
 <fCall name="printf" global="true" numArgs="2">
   <arg num="0">
     <values>
@@ -509,6 +508,8 @@
       <value type="unknown"/>
     </values>
   </arg>
+</fCall>
+<fCall name="_closeinpgm" global="true" numArgs="0">
 </fCall>
 <fCall name="printf" global="true" numArgs="1">
   <arg num="0">
