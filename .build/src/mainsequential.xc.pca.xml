@@ -1,4 +1,4 @@
-<preCompilationAnalysis file="../src/main.xc">
+<preCompilationAnalysis file="../src/mainsequential.xc">
 <fDef name="DataInStream" global="true" noreturn="false" doNotSpecialize="false" numParams="2"/>
 <fDef name="DataOutStream" global="true" noreturn="false" doNotSpecialize="false" numParams="2"/>
 <fDef name="_safe_memcmp" global="true" noreturn="false" doNotSpecialize="true" numParams="3"/>
@@ -34,13 +34,11 @@
 <fDef name="shutdown" global="true" interface="i2c_master_async_if" noreturn="false" doNotSpecialize="false" numParams="0"/>
 <fDef name="shutdown" global="true" interface="i2c_master_if" noreturn="false" doNotSpecialize="false" numParams="0"/>
 <fDef name="shutdown" global="true" interface="i2c_slave_callback_if" noreturn="false" doNotSpecialize="false" numParams="0"/>
-<fDef name="slice" global="true" noreturn="false" doNotSpecialize="false" numParams="3"/>
 <fDef name="start_master_read" global="true" interface="i2c_slave_callback_if" noreturn="false" doNotSpecialize="false" numParams="0"/>
 <fDef name="start_master_write" global="true" interface="i2c_slave_callback_if" noreturn="false" doNotSpecialize="false" numParams="0"/>
 <fDef name="start_read_request" global="true" interface="i2c_slave_callback_if" noreturn="false" doNotSpecialize="false" numParams="0"/>
 <fDef name="start_write_request" global="true" interface="i2c_slave_callback_if" noreturn="false" doNotSpecialize="false" numParams="0"/>
 <fDef name="stop_bit" global="true" interface="i2c_slave_callback_if" noreturn="false" doNotSpecialize="false" numParams="0"/>
-<fDef name="worker" global="true" noreturn="false" doNotSpecialize="false" numParams="1"/>
 <fDef name="write" global="true" interface="i2c_master_async_if" noreturn="false" doNotSpecialize="false" numParams="4"/>
 <fDef name="write" global="true" interface="i2c_master_if" noreturn="false" doNotSpecialize="false" numParams="5"/>
 <fDef name="write_reg" global="true" interface="i2c_master_if" noreturn="false" doNotSpecialize="true" numParams="4"/>
@@ -449,7 +447,7 @@
     </values>
   </arg>
 </fCall>
-<fCall name="__builtin_timer_after" global="true" numArgs="2">
+<fCall name="printf" global="true" numArgs="2">
   <arg num="0">
     <values>
       <value type="unknown"/>
@@ -462,6 +460,42 @@
   </arg>
 </fCall>
 <fCall name="__builtin_timer_after" global="true" numArgs="2">
+  <arg num="0">
+    <values>
+      <value type="unknown"/>
+    </values>
+  </arg>
+  <arg num="1">
+    <values>
+      <value type="unknown"/>
+    </values>
+  </arg>
+</fCall>
+<fCall name="printf" global="true" numArgs="2">
+  <arg num="0">
+    <values>
+      <value type="unknown"/>
+    </values>
+  </arg>
+  <arg num="1">
+    <values>
+      <value type="unknown"/>
+    </values>
+  </arg>
+</fCall>
+<fCall name="__builtin_timer_after" global="true" numArgs="2">
+  <arg num="0">
+    <values>
+      <value type="unknown"/>
+    </values>
+  </arg>
+  <arg num="1">
+    <values>
+      <value type="unknown"/>
+    </values>
+  </arg>
+</fCall>
+<fCall name="printf" global="true" numArgs="2">
   <arg num="0">
     <values>
       <value type="unknown"/>
@@ -527,91 +561,6 @@
   <arg num="0">
     <values>
       <value type="unknown"/>
-    </values>
-  </arg>
-</fCall>
-<fCall name="__builtin_memcpy_xc" global="true" numArgs="3">
-  <arg num="0">
-    <values>
-      <value type="unknown"/>
-    </values>
-  </arg>
-  <arg num="1">
-    <values>
-      <value type="unknown"/>
-    </values>
-  </arg>
-  <arg num="2">
-    <values>
-      <value type="intval"><intval isSigned="false" val="2"/></value>
-    </values>
-  </arg>
-</fCall>
-<fCall name="__builtin_memcpy_xc" global="true" numArgs="3">
-  <arg num="0">
-    <values>
-      <value type="unknown"/>
-    </values>
-  </arg>
-  <arg num="1">
-    <values>
-      <value type="unknown"/>
-    </values>
-  </arg>
-  <arg num="2">
-    <values>
-      <value type="intval"><intval isSigned="false" val="2"/></value>
-    </values>
-  </arg>
-</fCall>
-<fCall name="__builtin_memcpy_xc" global="true" numArgs="3">
-  <arg num="0">
-    <values>
-      <value type="unknown"/>
-    </values>
-  </arg>
-  <arg num="1">
-    <values>
-      <value type="unknown"/>
-    </values>
-  </arg>
-  <arg num="2">
-    <values>
-      <value type="intval"><intval isSigned="false" val="2"/></value>
-    </values>
-  </arg>
-</fCall>
-<fCall name="__builtin_memcpy_xc" global="true" numArgs="3">
-  <arg num="0">
-    <values>
-      <value type="unknown"/>
-    </values>
-  </arg>
-  <arg num="1">
-    <values>
-      <value type="unknown"/>
-    </values>
-  </arg>
-  <arg num="2">
-    <values>
-      <value type="intval"><intval isSigned="false" val="2"/></value>
-    </values>
-  </arg>
-</fCall>
-<fCall name="__builtin_memcpy_xc" global="true" numArgs="3">
-  <arg num="0">
-    <values>
-      <value type="unknown"/>
-    </values>
-  </arg>
-  <arg num="1">
-    <values>
-      <value type="unknown"/>
-    </values>
-  </arg>
-  <arg num="2">
-    <values>
-      <value type="intval"><intval isSigned="false" val="2"/></value>
     </values>
   </arg>
 </fCall>
@@ -1117,7 +1066,7 @@
 <fCall name="i2c_master" global="true" numArgs="5" impId="0">
   <arg num="0">
     <values>
-      <value type="interface"><interfaceInfo index="0" type="dist" func="i2c_master" global="true" impUnit="../src/main.xc" impId="0" param="0"/></value>
+      <value type="interface"><interfaceInfo index="0" type="dist" func="i2c_master" global="true" impUnit="../src/mainsequential.xc" impId="0" param="0"/></value>
     </values>
   </arg>
   <arg num="1">
@@ -1144,7 +1093,7 @@
 <fCall name="orientation" global="true" numArgs="2" impId="1">
   <arg num="0">
     <values>
-      <value type="interface"><interfaceInfo index="0" type="dist" func="i2c_master" global="true" impUnit="../src/main.xc" impId="0" param="0"/></value>
+      <value type="interface"><interfaceInfo index="0" type="dist" func="i2c_master" global="true" impUnit="../src/mainsequential.xc" impId="0" param="0"/></value>
     </values>
   </arg>
   <arg num="1">

@@ -9,7 +9,6 @@
 
 #define IMHT 16                  //image height
 #define IMWD 16                  //image width
-#define WORKERS 8
 
 typedef unsigned char uchar;      //using uchar as shorthand
 
@@ -32,12 +31,12 @@ void keepTime() {
     unsigned long t;
     tmr :> t;
     t /= 100000;
-    //printf("%lu\n", t);
+    printf("%lu\n", t);
     unsigned int period = 100000000;
     select {
         case tmr when timerafter(period) :> void:
             t = ((period/100000) - t);
-            //printf("%lu\n", t);
+            printf("%lu\n", t);
             break;
     }
     while (1) {
@@ -45,7 +44,7 @@ void keepTime() {
         select {
                 case tmr when timerafter(period) :> void:
                     t += (period/100000);
-                    //printf("%lu\n", t);
+                    printf("%lu\n", t);
                     break;
             }
     }
@@ -90,34 +89,6 @@ void DataInStream(char infname[], chanend c_out)
 //
 /////////////////////////////////////////////////////////////////////////////////////////
 
-void worker(chanend c) {
-    //uchar slice[(IMHT/8) + 2][IMWD];
-}
-
-void slice(uchar result[IMHT/WORKERS + 2][IMWD/8], uchar image[IMHT][IMWD/8], int i) {
-    if (i == 0){
-        memcpy(image[IMHT-1], result[0], sizeof(image[IMHT-1]));
-        int k = 1;
-        for(int y = i; y <= (IMHT/WORKERS); y++){
-            memcpy(image[y], result[k], sizeof(image[y]));
-            k++;
-        }
-    } else if (i == (WORKERS - 1)){
-        int k = 0;
-        for(int y = i-1; y < (IMHT/WORKERS); y++){
-            memcpy(image[y], result[k], sizeof(image[y]));
-            k++;
-        }
-        memcpy(image[0], result[(IMWD/8)-1], sizeof(image[0]));
-    } else {
-        int k = 0;
-        for(int y = i-1; y <= (IMHT/WORKERS); y++){
-            memcpy(image[y], result[k], sizeof(image[y]));
-            k++;
-        }
-    }
-}
-
 uchar getCell(uchar image[ IMHT ][ IMWD / 8 ], uchar x, uchar y){
     return image[y][x/8]&(1<<(x%8)) ? 1 : 0;
 }
@@ -161,22 +132,6 @@ uchar checkCell(uchar image[ IMHT ][ IMWD / 8 ], uchar x, uchar y)
     }
 
     return result;
-}
-
-uchar ** getRow(uchar slice[IMHT/WORKERS + 2][IMWD/8], int iterations){
-    uchar row[IMHT/WORKERS][IMWD/8];
-
-    for (int i = 0; i < iterations; i++)
-    {
-      for( int y = 1; y < IMHT/WORKERS; y++ ) {   //go through all lines
-        for( int x = 0; x < IMWD; x++ ) {
-                setCell(imageNext, x, y, checkCell(imageCurrent, x, y));
-        }
-      }
-      memcpy(imageCurrent, imageNext, sizeof(imageCurrent));
-      printWorld(imageCurrent);
-      printf("\n");
-    }
 }
 
 void printWorld(uchar image[ IMHT ][ IMWD / 8]) {

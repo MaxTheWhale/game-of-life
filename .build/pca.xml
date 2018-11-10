@@ -463,6 +463,47 @@
     </values>
   </arg>
 </fInfo>
+<fInfo name="generate" global="true" specialize="true" noreturn="false" doNotSpecialize="false" numParams="3">
+  <arg num="0" specialize="true">
+    <values>
+      <value type="intval"><intval isSigned="true" val="10"/></value>
+    </values>
+  </arg>
+  <arg num="1" specialize="false">
+    <values>
+      <value type="unknown"/>
+    </values>
+  </arg>
+  <arg num="2" specialize="false">
+    <values>
+      <value type="unknown"/>
+    </values>
+  </arg>
+ <specializations>
+   <specialization id="0">
+    <arg num="0"><values><value type="intval"><intval isSigned="true" val="10"/></value></values></arg>
+    <arg num="1"><values><value type="unknown"/></values></arg>
+    <arg num="2"><values><value type="unknown"/></values></arg>
+   </specialization>
+ </specializations>
+</fInfo>
+<fInfo name="getCell" global="true" specialize="false" noreturn="false" doNotSpecialize="false" numParams="3">
+  <arg num="0" specialize="false">
+    <values>
+      <value type="unknown"/>
+    </values>
+  </arg>
+  <arg num="1" specialize="false">
+    <values>
+      <value type="unknown"/>
+    </values>
+  </arg>
+  <arg num="2" specialize="false">
+    <values>
+      <value type="unknown"/>
+    </values>
+  </arg>
+</fInfo>
 <fInfo name="get_read_data" global="true" interface="i2c_master_async_if" specialize="false" noreturn="false" doNotSpecialize="false" numParams="2">
   <arg num="0" specialize="false">
     <values>
@@ -644,6 +685,8 @@
     </values>
   </arg>
 </fInfo>
+<fInfo name="keepTime" global="true" specialize="false" noreturn="true" doNotSpecialize="false" numParams="0">
+</fInfo>
 <fInfo name="main" global="true" specialize="false" noreturn="false" doNotSpecialize="false" numParams="0">
 </fInfo>
 <fInfo name="master_requires_data" global="true" interface="i2c_slave_callback_if" specialize="false" noreturn="false" doNotSpecialize="false" numParams="0">
@@ -815,11 +858,47 @@
 </fInfo>
 <fInfo name="send_stop_bit" global="true" interface="i2c_master_if" specialize="false" noreturn="false" doNotSpecialize="false" numParams="0">
 </fInfo>
+<fInfo name="setCell" global="true" specialize="false" noreturn="false" doNotSpecialize="false" numParams="4">
+  <arg num="0" specialize="false">
+    <values>
+      <value type="unknown"/>
+    </values>
+  </arg>
+  <arg num="1" specialize="false">
+    <values>
+      <value type="unknown"/>
+    </values>
+  </arg>
+  <arg num="2" specialize="false">
+    <values>
+      <value type="unknown"/>
+    </values>
+  </arg>
+  <arg num="3" specialize="false">
+    <values>
+      <value type="unknown"/>
+    </values>
+  </arg>
+</fInfo>
 <fInfo name="shutdown" global="true" interface="i2c_master_async_if" specialize="false" noreturn="false" doNotSpecialize="false" numParams="0">
 </fInfo>
 <fInfo name="shutdown" global="true" interface="i2c_master_if" specialize="false" noreturn="false" doNotSpecialize="false" numParams="0">
 </fInfo>
 <fInfo name="shutdown" global="true" interface="i2c_slave_callback_if" specialize="false" noreturn="false" doNotSpecialize="false" numParams="0">
+</fInfo>
+<fInfo name="slice" global="true" specialize="false" noreturn="false" doNotSpecialize="false" numParams="3">
+  <arg num="0" specialize="false">
+    <values>
+    </values>
+  </arg>
+  <arg num="1" specialize="false">
+    <values>
+    </values>
+  </arg>
+  <arg num="2" specialize="false">
+    <values>
+    </values>
+  </arg>
 </fInfo>
 <fInfo name="start_master_read" global="true" interface="i2c_slave_callback_if" specialize="false" noreturn="false" doNotSpecialize="false" numParams="0">
 </fInfo>
@@ -830,6 +909,12 @@
 <fInfo name="start_write_request" global="true" interface="i2c_slave_callback_if" specialize="false" noreturn="false" doNotSpecialize="false" numParams="0">
 </fInfo>
 <fInfo name="stop_bit" global="true" interface="i2c_slave_callback_if" specialize="false" noreturn="false" doNotSpecialize="false" numParams="0">
+</fInfo>
+<fInfo name="worker" global="true" specialize="false" noreturn="false" doNotSpecialize="false" numParams="1">
+  <arg num="0" specialize="false">
+    <values>
+    </values>
+  </arg>
 </fInfo>
 <fInfo name="write" global="true" interface="i2c_master_async_if" specialize="false" noreturn="false" doNotSpecialize="false" numParams="4">
   <arg num="0" specialize="false">

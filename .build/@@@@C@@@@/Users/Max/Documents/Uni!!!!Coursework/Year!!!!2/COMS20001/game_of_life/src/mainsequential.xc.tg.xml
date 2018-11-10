@@ -1,0 +1,177 @@
+<taskgraph>
+<task>
+  <name>delay_seconds</name>
+  <inFunction>delay_seconds</inFunction>
+  <calledFunction>delay_ticks_longlong</calledFunction>
+</task>
+<task>
+  <name>delay_milliseconds</name>
+  <inFunction>delay_milliseconds</inFunction>
+  <calledFunction>delay_ticks_longlong</calledFunction>
+</task>
+<task>
+  <name>delay_microseconds</name>
+  <inFunction>delay_microseconds</inFunction>
+  <calledFunction>delay_ticks_longlong</calledFunction>
+</task>
+<task>
+  <name>_safe_memcmp</name>
+  <inFunction>_safe_memcmp</inFunction>
+</task>
+<task>
+  <name>_safe_memmove</name>
+  <inFunction>_safe_memmove</inFunction>
+</task>
+<task>
+  <name>_safe_memset</name>
+  <inFunction>_safe_memset</inFunction>
+</task>
+<task>
+  <name>read_reg</name>
+  <inFunction>read_reg</inFunction>
+</task>
+<task>
+  <name>write_reg</name>
+  <inFunction>write_reg</inFunction>
+</task>
+<task>
+  <name>read_reg8_addr16</name>
+  <inFunction>read_reg8_addr16</inFunction>
+</task>
+<task>
+  <name>write_reg8_addr16</name>
+  <inFunction>write_reg8_addr16</inFunction>
+</task>
+<task>
+  <name>read_reg16</name>
+  <inFunction>read_reg16</inFunction>
+</task>
+<task>
+  <name>write_reg16</name>
+  <inFunction>write_reg16</inFunction>
+</task>
+<task>
+  <name>read_reg16_addr8</name>
+  <inFunction>read_reg16_addr8</inFunction>
+</task>
+<task>
+  <name>write_reg16_addr8</name>
+  <inFunction>write_reg16_addr8</inFunction>
+</task>
+<task>
+  <name>keepTime</name>
+  <inFunction>keepTime</inFunction>
+</task>
+<task>
+  <name>DataInStream</name>
+  <inFunction>DataInStream</inFunction>
+</task>
+<task>
+  <name>getCell</name>
+  <inFunction>getCell</inFunction>
+</task>
+<task>
+  <name>setCell</name>
+  <inFunction>setCell</inFunction>
+</task>
+<task>
+  <name>checkCell</name>
+  <inFunction>checkCell</inFunction>
+</task>
+<task>
+  <name>printWorld</name>
+  <inFunction>printWorld</inFunction>
+</task>
+<task>
+  <name>generate</name>
+  <inFunction>generate</inFunction>
+  <endOfSeqCalledFunction>printf</endOfSeqCalledFunction>
+</task>
+<task>
+  <name>distributor</name>
+  <inFunction>distributor</inFunction>
+  <endOfSeqCalledFunction>printf</endOfSeqCalledFunction>
+</task>
+<task>
+  <name>DataOutStream</name>
+  <inFunction>DataOutStream</inFunction>
+</task>
+<task>
+  <name>orientation</name>
+  <inFunction>orientation</inFunction>
+</task>
+<task>
+  <name>main</name>
+  <inFunction>main</inFunction>
+</task>
+<task>
+  <name>_task_i2c_master_0</name>
+  <inFunction>main</inFunction>
+  <parent>main</parent>
+  <calledFunction>i2c_master</calledFunction>
+  <distributed/>
+  <inPar/>
+</task>
+<task>
+  <name>_task_orientation_1</name>
+  <inFunction>main</inFunction>
+  <parent>main</parent>
+  <calledFunction>orientation</calledFunction>
+  <core>2</core>
+  <inPar/>
+</task>
+<task>
+  <name>_task_DataInStream_2</name>
+  <inFunction>main</inFunction>
+  <parent>main</parent>
+  <calledFunction>DataInStream</calledFunction>
+  <core>3</core>
+  <inPar/>
+</task>
+<task>
+  <name>_task_DataOutStream_3</name>
+  <inFunction>main</inFunction>
+  <parent>main</parent>
+  <calledFunction>DataOutStream</calledFunction>
+  <core>4</core>
+  <inPar/>
+</task>
+<task>
+  <name>_task_distributor_4</name>
+  <inFunction>main</inFunction>
+  <parent>main</parent>
+  <calledFunction>distributor</calledFunction>
+  <core>5</core>
+  <inPar/>
+</task>
+<connection>
+  <ends>
+    <end task="_task_i2c_master_0" type="server"/>
+    <end task="_task_orientation_1" type="client"/>
+  </ends>
+    <index>0</index>
+  <name>i2c</name>
+   <interface>i2c_master_if</interface>
+</connection>
+<connection>
+  <ends>
+    <end task="_task_orientation_1" type="chan"/>
+    <end task="_task_distributor_4" type="chan"/>
+  </ends>
+  <name>c_control</name>
+</connection>
+<connection>
+  <ends>
+    <end task="_task_DataInStream_2" type="chan"/>
+    <end task="_task_distributor_4" type="chan"/>
+  </ends>
+  <name>c_inIO</name>
+</connection>
+<connection>
+  <ends>
+    <end task="_task_DataOutStream_3" type="chan"/>
+    <end task="_task_distributor_4" type="chan"/>
+  </ends>
+  <name>c_outIO</name>
+</connection>
+</taskgraph>
