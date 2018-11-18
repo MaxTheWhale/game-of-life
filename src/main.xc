@@ -7,14 +7,24 @@
 #include "pgmIO.h"
 #include "i2c.h"
 
-#define IMHT 16                  //image height
-#define IMWD 16                  //image width
+#define IMHT 16                //image height
+#define IMWD 16                //image width
+#define LINE_SIZE (IMWD/8)
+#define IMG_SIZE (IMHT*LINE_SIZE)
 #define WORKERS 8
+#define ROWHT (IMHT/WORKERS)
+#define SLICEHT (ROWHT+2)
+#define ROW_SIZE (ROWHT*LINE_SIZE)
+#define SLICE_SIZE (SLICEHT*LINE_SIZE)
 
 typedef unsigned char uchar;      //using uchar as shorthand
+typedef unsigned long ulong;
 
-port p_scl = XS1_PORT_1E;         //interface ports to orientation
-port p_sda = XS1_PORT_1F;
+on tile[0]: port p_scl = XS1_PORT_1E;         //interface ports to orientation
+on tile[0]: port p_sda = XS1_PORT_1F;
+
+char infname[] = "test.pgm";     //put your input image path here
+char outfname[] = "testout.pgm"; //put your output image path here
 
 #define FXOS8700EQ_I2C_ADDR 0x1E  //register addresses for orientation
 #define FXOS8700EQ_XYZ_DATA_CFG_REG 0x0E
@@ -27,28 +37,26 @@ port p_sda = XS1_PORT_1F;
 #define FXOS8700EQ_OUT_Z_MSB 0x5
 #define FXOS8700EQ_OUT_Z_LSB 0x6
 
-void keepTime() {
-    timer tmr;
-    unsigned long t;
-    tmr :> t;
-    t /= 100000;
-    //printf("%lu\n", t);
-    unsigned int period = 100000000;
+interface time_iface {
+    int getTime();
+};
+
+void keepTime(server interface time_iface i) {
+  int count = 0;
+  int period = 100000;
+  timer tmr;
+  unsigned time;
+  while (1) {
     select {
-        case tmr when timerafter(period) :> void:
-            t = ((period/100000) - t);
-            //printf("%lu\n", t);
-            break;
+      case tmr when timerafter(time) :> void:
+        count++;
+        time += period;
+        break;
+      case i.getTime() -> int timeOut:
+        timeOut = count;
+        break;
     }
-    while (1) {
-        timer tmr;
-        select {
-                case tmr when timerafter(period) :> void:
-                    t += (period/100000);
-                    //printf("%lu\n", t);
-                    break;
-            }
-    }
+  }
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////
@@ -90,47 +98,38 @@ void DataInStream(char infname[], chanend c_out)
 //
 /////////////////////////////////////////////////////////////////////////////////////////
 
-void worker(chanend c) {
-    //uchar slice[(IMHT/8) + 2][IMWD];
-}
-
-void slice(uchar result[IMHT/WORKERS + 2][IMWD/8], uchar image[IMHT][IMWD/8], int i) {
-    if (i == 0){
-        memcpy(image[IMHT-1], result[0], sizeof(image[IMHT-1]));
-        int k = 1;
-        for(int y = i; y <= (IMHT/WORKERS); y++){
-            memcpy(image[y], result[k], sizeof(image[y]));
-            k++;
-        }
-    } else if (i == (WORKERS - 1)){
-        int k = 0;
-        for(int y = i-1; y < (IMHT/WORKERS); y++){
-            memcpy(image[y], result[k], sizeof(image[y]));
-            k++;
-        }
-        memcpy(image[0], result[(IMWD/8)-1], sizeof(image[0]));
-    } else {
-        int k = 0;
-        for(int y = i-1; y <= (IMHT/WORKERS); y++){
-            memcpy(image[y], result[k], sizeof(image[y]));
-            k++;
-        }
-    }
-}
-
-uchar getCell(uchar image[ IMHT ][ IMWD / 8 ], uchar x, uchar y){
+uchar getCell(uchar image[SLICEHT][LINE_SIZE], uchar x, uchar y){
     return image[y][x/8]&(1<<(x%8)) ? 1 : 0;
 }
 
-void setCell(uchar image[ IMHT ][ IMWD / 8], uchar x, uchar y, uchar v){
-    if (v){
-        image[y][x/8] |= (1<<(x%8));
-    } else {
-        (image[y][x/8]) &= ~(((uchar)1)<<(x%8));
+void printSlice(uchar slice[SLICEHT][LINE_SIZE]) {
+    for( int y = 0; y < SLICEHT; y++ ) {
+        for( int x = 0; x < IMWD; x++ ) {
+          char p = (getCell(slice, x, y)) ? 'X' : '.';
+          printf( "%c ",p); //show image values
+        }
+        printf( "\n" );
+      }
+}
+
+void sendSlice(uchar image[IMHT][LINE_SIZE], int i, chanend c) {
+    for (int y = (ROWHT * i) - 1; y < ((ROWHT * i) - 1 + SLICEHT); y++) {
+        int iy = (y+IMHT) % IMHT;
+        for (int x = 0; x < (LINE_SIZE); x++) {
+          c <: image[iy][x];
+        }
     }
 }
 
-uchar checkCell(uchar image[ IMHT ][ IMWD / 8 ], uchar x, uchar y)
+void setCell(uchar image[ROWHT][LINE_SIZE], uchar x, uchar y, uchar v){
+    if (v){
+        image[y][(x/8)] |= (1<<(x%8));
+    } else {
+        image[y][(x/8)] &= ~(((uchar)1)<<(x%8));
+    }
+}
+
+uchar checkCell(uchar image[SLICEHT][LINE_SIZE], uchar x, uchar y)
 {
     uchar living = getCell(image, x, y);
     uchar neighbours = 0;
@@ -163,59 +162,82 @@ uchar checkCell(uchar image[ IMHT ][ IMWD / 8 ], uchar x, uchar y)
     return result;
 }
 
-uchar ** getRow(uchar slice[IMHT/WORKERS + 2][IMWD/8], int iterations){
-    uchar row[IMHT/WORKERS][IMWD/8];
-
-    for (int i = 0; i < iterations; i++)
-    {
-      for( int y = 1; y < IMHT/WORKERS; y++ ) {   //go through all lines
-        for( int x = 0; x < IMWD; x++ ) {
-                setCell(imageNext, x, y, checkCell(imageCurrent, x, y));
-        }
+void worker(chanend c) {
+  uchar slice[SLICEHT][LINE_SIZE];
+  uchar row[ROWHT][LINE_SIZE];
+  while(1) {
+    for (int y = 0; y < SLICEHT; y++) {
+      for (int x = 0; x < LINE_SIZE; x++) {
+        c :> slice[y][x];
       }
-      memcpy(imageCurrent, imageNext, sizeof(imageCurrent));
-      printWorld(imageCurrent);
-      printf("\n");
     }
+    /*printf("\n");
+    printSlice(slice);*/
+    //printf("Workers got here before the other statement\n");
+    for (int y = 0; y < ROWHT; y++) {   //go through all lines
+      for( int x = 0; x < IMWD; x++ ) {
+        setCell(row, x, y, checkCell(slice, x, (y+1)));
+      }
+    }
+    //printf("Workers got here\n");
+    for (int y = 0; y < ROWHT; y++) {
+      for (int x = 0; x < LINE_SIZE; x++) {
+        c <: row[y][x];
+      }
+    }/*
+    for (int y = 1; y < (IMHT/WORKERS+1); y++) {
+      for (int x = 0; x < (IMWD/8); x++) {
+        c <: slice[y][x];
+      }
+    }*/
+  }
 }
 
-void printWorld(uchar image[ IMHT ][ IMWD / 8]) {
-    for( int y = 0; y < IMHT; y++ ) {
+uchar getCellRow(uchar image[ROWHT][LINE_SIZE], uchar x, uchar y){
+    return image[y][x/8]&(1<<(x%8)) ? 1 : 0;
+}
+
+void printRow(uchar image[ROWHT][LINE_SIZE]) {
+    for( int y = 0; y < ROWHT; y++ ) {
         for( int x = 0; x < IMWD; x++ ) {
-          char p = (getCell(image, x, y)) ? 'X' : '.';
+          char p = (getCellRow(image, x, y)) ? 'X' : '.';
           printf( "%c ",p); //show image values
         }
         printf( "\n" );
       }
 }
 
-void generate(int iterations, uchar imageCurrent[IMHT][IMWD/8], uchar imageNext[IMHT][IMWD/8]){
-    timer tmr;
-    int startTime;
-    tmr :> startTime;
-
-    for (int i = 0; i < iterations; i++)
-    {
-      for( int y = 0; y < IMHT; y++ ) {   //go through all lines
-        for( int x = 0; x < IMWD; x++ ) {
-                setCell(imageNext, x, y, checkCell(imageCurrent, x, y));
-        }
-      }
-      memcpy(imageCurrent, imageNext, sizeof(imageCurrent));
-      printWorld(imageCurrent);
-      printf("\n");
+void getRow(uchar image[IMHT][LINE_SIZE], int i, chanend c){
+  for (int y = 0; y < (ROWHT); y++) {
+    int iy = y + (ROWHT * i);
+    for (int x = 0; x < (LINE_SIZE); x++) {
+      c :> image[iy][x];
     }
-
-    int endTime;
-    tmr :> endTime;
-    int timeTaken = endTime - startTime;
-    printf("Time taken: %fms", timeTaken / 100000.0f);
+  }
+  /*int k = 0;
+  for(int y = (IMHT/WORKERS) * i; y < ((IMHT/WORKERS) * (i+1)); y++){
+      memcpy(image[y], r[k], sizeof(image[y]));
+      k++;
+  }*/
 }
 
-void distributor(chanend c_in, chanend c_out, chanend fromAcc)
+uchar getCellFinal(uchar image[IMHT][LINE_SIZE], uchar x, uchar y){
+    return image[y][x/8]&(1<<(x%8)) ? 1 : 0;
+}
+
+void printWorld(uchar image[IMHT][LINE_SIZE]) {
+    for( int y = 0; y < IMHT; y++ ) {
+        for( int x = 0; x < IMWD; x++ ) {
+          char p = (getCellFinal(image, x, y)) ? 'X' : '.';
+          printf( "%c ",p); //show image values
+        }
+        printf( "\n" );
+      }
+}
+
+void distributor(client interface time_iface i, chanend c_in, chanend c_out, chanend fromAcc, chanend workers[WORKERS])
 {
-  uchar imageCurrent[IMHT][IMWD/8];
-  uchar imageNext[IMHT][IMWD/8];
+  uchar image[IMHT][LINE_SIZE];
 
   //Starting up and wait for tilting of the xCore-200 Explorer
   printf( "ProcessImage: Start, size = %dx%d\n", IMHT, IMWD );
@@ -224,7 +246,7 @@ void distributor(chanend c_in, chanend c_out, chanend fromAcc)
 
   printf( "Processing...\n" );
   for( int y = 0; y < IMHT; y++ ) {     //go through all lines
-      for( int x = 0; x < IMWD / 8; x++ ) { //go through each pixel per line
+      for( int x = 0; x < LINE_SIZE; x++ ) { //go through each pixel per line
         uchar nextByte = 0;
         for (int b = 0; b < 8; b++)
         {
@@ -235,15 +257,39 @@ void distributor(chanend c_in, chanend c_out, chanend fromAcc)
                 nextByte |= (1 << b);
             }
         }
-        imageCurrent[y][x] = nextByte;
+        image[y][x] = nextByte;
       }
   }
+  int sTime = i.getTime();
+  timer tmr;
+  unsigned int startTime;
+  tmr :> startTime;
+  //printWorld(image);
+  //printf("\n");
+  for (int iteration = 0; iteration < 10; iteration++) {
+      for (int i = 0; i < WORKERS; i++) {
+          sendSlice(image, i, workers[i]);
+        }
+        //printf("got here\n");
 
-  generate(10, imageCurrent, imageNext);
+        for (int i = 0; i < WORKERS; i++) {
+          //printf("getting row %d\n",i);
+          getRow(image, i, workers[i]);
+        }
+        //printf("got here, too\n");
 
+        //printWorld(image);
+        //printf("\n");
+  }
+  unsigned int endTime;
+  tmr :> endTime;
+  int timeTaken = endTime - startTime;
+  int eTime = i.getTime();
+  printf("Time taken: %.2fms  ", timeTaken / 100000.0f);
+  printf("Time taken: %dms  ", (eTime - sTime));
   for( int y = 0; y < IMHT; y++ ) {   //go through all lines
     for( int x = 0; x < IMWD; x++ ) { //go through each pixel per line
-      if (getCell(imageNext, x, y)) {
+      if (getCellFinal(image, x, y)) {
           c_out <: (uchar)255;
       }
       else {
@@ -339,18 +385,21 @@ void orientation( client interface i2c_master_if i2c, chanend toDist) {
 int main(void) {
 
 i2c_master_if i2c[1];               //interface to orientation
+interface time_iface i;
 
-char infname[] = "test.pgm";     //put your input image path here
-char outfname[] = "testout.pgm"; //put your output image path here
-chan c_inIO, c_outIO, c_control;    //extend your channel definitions here
+chan c_inIO, c_outIO, c_control;  //extend your channel definitions here
+chan workers[WORKERS];
 
 par {
-    i2c_master(i2c, 1, p_scl, p_sda, 10);   //server thread providing orientation data
-    orientation(i2c[0],c_control);        //client thread reading orientation data
-    DataInStream(infname, c_inIO);          //thread to read in a PGM image
-    DataOutStream(outfname, c_outIO);       //thread to write out a PGM image
-    distributor(c_inIO, c_outIO, c_control);//thread to coordinate work on image
-    //keepTime();
+    on tile[0]: i2c_master(i2c, 1, p_scl, p_sda, 10);   //server thread providing orientation data
+    on tile[0]: orientation(i2c[0],c_control);        //client thread reading orientation data
+    on tile[0]: DataInStream(infname, c_inIO);          //thread to read in a PGM image
+    on tile[0]: DataOutStream(outfname, c_outIO);       //thread to write out a PGM image
+    on tile[0]: distributor(i, c_inIO, c_outIO, c_control, workers); //thread to coordinate work on image
+    on tile[0]: keepTime(i);
+    par (int i = 0; i < WORKERS; i++) {
+        on tile[1]: worker(workers[i]);
+    }
   }
 
   return 0;
