@@ -35,7 +35,7 @@ void keepTime(server interface time_iface i) {
   int count = 0;
   int period = 100000;
   timer tmr;
-  unsigned time;
+  unsigned time = 0;
   while (1) {
     select {
       case tmr when timerafter(time) :> void:
@@ -135,10 +135,6 @@ uchar checkCell(uchar image[IMG_SIZE], uchar x, uchar y) {
 }
 
 void generate(int iterations, uchar imageCurrent[IMG_SIZE], uchar imageNext[IMG_SIZE]) {
-  timer tmr;
-  unsigned int startTime;
-  tmr :> startTime;
-
   for (int i = 0; i < iterations; i++) {
     for (int y = 0; y < IMHT; y++) {
       for (int x = 0; x < IMWD; x++) {
@@ -149,11 +145,6 @@ void generate(int iterations, uchar imageCurrent[IMG_SIZE], uchar imageNext[IMG_
     //printWorld(imageCurrent);
     //printf("\n");
   }
-
-  unsigned int endTime;
-  tmr :> endTime;
-  int timeTaken = endTime - startTime;
-  printf("Time taken: %.2fms  ", timeTaken / 100000.0f);
 }
 
 void distributor(client interface time_iface i, chanend c_in, chanend c_out, chanend fromAcc) {
@@ -178,10 +169,17 @@ void distributor(client interface time_iface i, chanend c_in, chanend c_out, cha
     imageCurrent[i] = nextByte;
   }
 
-  int startTime = i.getTime();
-  generate(1, imageCurrent, imageNext);
-  int endTime = i.getTime();
-  printf("Time taken: %dms  ", (endTime - startTime));
+  int sTime = i.getTime();
+  timer tmr;
+  unsigned int startTime;
+  tmr :> startTime;
+  generate(10, imageCurrent, imageNext);
+  unsigned int endTime;
+  tmr :> endTime;
+  int timeTaken = endTime - startTime;
+  int eTime = i.getTime();
+  printf("Time taken: %.2fms  ", timeTaken / 100000.0f);
+  printf("Time taken: %dms  ", (eTime - sTime));
 
   for (int y = 0; y < IMHT; y++) {
     for (int x = 0; x < IMWD; x++) {

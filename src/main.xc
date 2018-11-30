@@ -7,8 +7,8 @@
 #include "pgmIO.h"
 #include "i2c.h"
 
-#define IMHT 16                //image height
-#define IMWD 16                //image width
+#define IMHT 128               //image height
+#define IMWD 128               //image width
 #define LINE_SIZE (IMWD/8)
 #define IMG_SIZE (IMHT*LINE_SIZE)
 #define WORKERS 8
@@ -20,11 +20,12 @@
 typedef unsigned char uchar;      //using uchar as shorthand
 typedef unsigned long ulong;
 
+on tile[0]: port buttons = XS1_PORT_4E;
+on tile[0]: port leds = XS1_PORT_4F;
 on tile[0]: port p_scl = XS1_PORT_1E;         //interface ports to orientation
 on tile[0]: port p_sda = XS1_PORT_1F;
 
-char infname[] = "test.pgm";     //put your input image path here
-char outfname[] = "testout.pgm"; //put your output image path here
+char infname[] = "128x128.pgm";     //put your input image path here
 
 #define FXOS8700EQ_I2C_ADDR 0x1E  //register addresses for orientation
 #define FXOS8700EQ_XYZ_DATA_CFG_REG 0x0E
@@ -39,24 +40,50 @@ char outfname[] = "testout.pgm"; //put your output image path here
 
 interface time_iface {
     int getTime();
+    void pause();
+    void unpause();
+};
+
+interface event_iface {
+    int buttons();
+    int tilt();
+    void light(int p);
 };
 
 void keepTime(server interface time_iface i) {
   int count = 0;
   int period = 100000;
+  int event = 0;
   timer tmr;
-  unsigned time;
+  unsigned time = 0;
   while (1) {
     select {
       case tmr when timerafter(time) :> void:
-        count++;
+        if (!event) count++;
         time += period;
         break;
       case i.getTime() -> int timeOut:
         timeOut = count;
         break;
+      case i.pause():
+        event = 1;
+        break;
+      case i.unpause():
+        event = 0;
+        break;
     }
   }
+}
+
+int showLEDs(out port p, chanend fromPattern) {
+    int pattern; //1st bit = separate green LED
+                 //2nd bit = blue LED
+                 //3rd bit = green LED
+                 //4th bit = red LED
+    while (1){
+        fromPattern :> pattern;
+        p <: pattern;
+    }
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////
@@ -235,14 +262,29 @@ void printWorld(uchar image[IMHT][LINE_SIZE]) {
       }
 }
 
-void distributor(client interface time_iface i, chanend c_in, chanend c_out, chanend fromAcc, chanend workers[WORKERS])
+int liveCells(uchar image[IMHT][LINE_SIZE]) {
+    int count = 0;
+    for (int y = 0; y < IMHT; y++) {
+        for( int x = 0; x < IMWD; x++ ) {
+           if (getCellFinal(image, x, y)) count++;
+        }
+    }
+    return count;
+}
+
+void distributor(client interface time_iface i, client interface event_iface event, chanend c_in, chanend c_out, chanend workers[WORKERS])
 {
   uchar image[IMHT][LINE_SIZE];
 
   //Starting up and wait for tilting of the xCore-200 Explorer
   printf( "ProcessImage: Start, size = %dx%d\n", IMHT, IMWD );
-  printf( "Waiting for Board Tilt...\n" );
-  fromAcc :> int value;
+  printf( "Waiting for SW1 press...\n" );
+
+  while(1) {
+      if(event.buttons()==14){
+          break;
+      }
+  }
 
   printf( "Processing...\n" );
   for( int y = 0; y < IMHT; y++ ) {     //go through all lines
@@ -261,42 +303,87 @@ void distributor(client interface time_iface i, chanend c_in, chanend c_out, cha
       }
   }
   int sTime = i.getTime();
-  timer tmr;
-  unsigned int startTime;
-  tmr :> startTime;
+  //timer tmr;
+  //unsigned int startTime;
+  //tmr :> startTime;
   //printWorld(image);
   //printf("\n");
-  for (int iteration = 0; iteration < 10; iteration++) {
+
+  int tilted = 0;
+  int iterations = 0;
+  int pattern = 0;
+  while (1) {
+      if(event.buttons()==13){
+          i.pause();
+
+          pattern |= 2;
+          event.light(pattern);
+
+          printf("Button pressed!\n");
+          c_out <: iterations;
+          for( int y = 0; y < IMHT; y++ ) {   //go through all lines
+             for( int x = 0; x < IMWD; x++ ) { //go through each pixel per line
+               if (getCellFinal(image, x, y)) {
+                   c_out <: (uchar)255;
+               }
+               else {
+                   c_out <: (uchar)0;
+               }
+             }
+           }
+
+          pattern &= (~2);
+          event.light(pattern);
+
+          i.unpause();
+      }
+      if(event.tilt() && !tilted){
+          tilted=1;
+          i.pause();
+
+          pattern |= 8;
+          event.light(pattern);
+
+          printf("%d iterations completed\n", iterations);
+          printf("%d cells alive\n", liveCells(image));
+          printf("%dms elapsed\n", i.getTime() - sTime);
+
+          pattern &= (~8);
+          event.light(pattern);
+
+          i.unpause();
+      }
+      if(!event.tilt()){
+          tilted=0;
+      }
+
+      if(iterations%2){
+          pattern |= 1;
+          event.light(pattern);
+      } else {
+          pattern &= (~1);
+          event.light(pattern);
+      }
+
       for (int i = 0; i < WORKERS; i++) {
           sendSlice(image, i, workers[i]);
         }
         //printf("got here\n");
 
-        for (int i = 0; i < WORKERS; i++) {
-          //printf("getting row %d\n",i);
-          getRow(image, i, workers[i]);
-        }
-        //printf("got here, too\n");
+      for (int i = 0; i < WORKERS; i++) {
+        //printf("getting row %d\n",i);
+        getRow(image, i, workers[i]);
+      }
 
-        //printWorld(image);
-        //printf("\n");
+      iterations++;
   }
-  unsigned int endTime;
-  tmr :> endTime;
-  int timeTaken = endTime - startTime;
+  //unsigned int endTime;
+  //tmr :> endTime;
+  //int timeTaken = endTime - startTime;
   int eTime = i.getTime();
-  printf("Time taken: %.2fms  ", timeTaken / 100000.0f);
+  //printf("Time taken: %.2fms  ", timeTaken / 100000.0f);
   printf("Time taken: %dms  ", (eTime - sTime));
-  for( int y = 0; y < IMHT; y++ ) {   //go through all lines
-    for( int x = 0; x < IMWD; x++ ) { //go through each pixel per line
-      if (getCellFinal(image, x, y)) {
-          c_out <: (uchar)255;
-      }
-      else {
-          c_out <: (uchar)0;
-      }
-    }
-  }
+
   printf( "\nOne processing round completed...\n" );
 }
 
@@ -310,28 +397,33 @@ void DataOutStream(char outfname[], chanend c_in)
   int res;
   uchar line[ IMWD ];
 
-  //Open PGM file
-  printf( "DataOutStream: Start...\n" );
-  res = _openoutpgm( outfname, IMWD, IMHT );
-  if( res ) {
-    printf( "DataOutStream: Error opening %s\n.", outfname );
-    return;
-  }
+  while (1) {
+      //Open PGM file
+      printf( "DataOutStream: Start...\n" );
+      int iteration;
+      c_in :> iteration;
+      char file_name[20];
+      sprintf(file_name, "out_%d.pgm", iteration);
+      res = _openoutpgm( file_name, IMWD, IMHT );
+      if( res ) {
+        printf( "DataOutStream: Error opening %s\n.", outfname );
+        return;
+      }
 
-  //Compile each line of the image and write the image line-by-line
-  for( int y = 0; y < IMHT; y++ ) {
-    for( int x = 0; x < IMWD; x++ ) {
-      c_in :> line[ x ];
-      //printf( "-%4.1d ", line[ x ] ); //show image values
-    }
-    _writeoutline( line, IMWD );
-    printf( " DataOutStream: Line written...\n" );
-  }
+      //Compile each line of the image and write the image line-by-line
+      for( int y = 0; y < IMHT; y++ ) {
+        for( int x = 0; x < IMWD; x++ ) {
+          c_in :> line[ x ];
+          //printf( "-%4.1d ", line[ x ] ); //show image values
+        }
+        _writeoutline( line, IMWD );
+        printf( " DataOutStream: Line written...\n" );
+      }
 
-  //Close the PGM image
-  _closeoutpgm();
-  printf( "DataOutStream: Done...\n" );
-  return;
+      //Close the PGM image
+      _closeoutpgm();
+      printf( "DataOutStream: Done...\n" );
+  }
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////
@@ -342,7 +434,6 @@ void DataOutStream(char outfname[], chanend c_in)
 void orientation( client interface i2c_master_if i2c, chanend toDist) {
   i2c_regop_res_t result;
   char status_data = 0;
-  int tilted = 0;
 
   // Configure FXOS8700EQ
   result = i2c.write_reg(FXOS8700EQ_I2C_ADDR, FXOS8700EQ_XYZ_DATA_CFG_REG, 0x01);
@@ -367,16 +458,34 @@ void orientation( client interface i2c_master_if i2c, chanend toDist) {
     //get new x-axis tilt value
     int x = read_acceleration(i2c, FXOS8700EQ_OUT_X_MSB);
 
-    //send signal to distributor after first tilt
-    if (!tilted) {
-      if (x>30) {
-        tilted = 1 - tilted;
+    if(x>30){
         toDist <: 1;
-      }
+    }else{
+        toDist <: 0;
     }
   }
 }
 
+void eventHandler(in port b, out port q, server interface event_iface i, chanend fromTilt){
+    int tiltInput;
+
+    while(1){
+        select {
+            case i.buttons() -> int pressed:
+                    int r;
+                    b :> r;
+                    pressed = r;
+                    break;
+            case i.tilt() -> int tilted:
+                    fromTilt :> tiltInput;
+                    tilted = tiltInput;
+                    break;
+            case i.light(int pattern):
+                    q <: pattern;
+                    break;
+        }
+    }
+}
 /////////////////////////////////////////////////////////////////////////////////////////
 //
 // Orchestrate concurrent system and start up all threads
@@ -386,6 +495,7 @@ int main(void) {
 
 i2c_master_if i2c[1];               //interface to orientation
 interface time_iface i;
+interface event_iface event;
 
 chan c_inIO, c_outIO, c_control;  //extend your channel definitions here
 chan workers[WORKERS];
@@ -395,8 +505,9 @@ par {
     on tile[0]: orientation(i2c[0],c_control);        //client thread reading orientation data
     on tile[0]: DataInStream(infname, c_inIO);          //thread to read in a PGM image
     on tile[0]: DataOutStream(outfname, c_outIO);       //thread to write out a PGM image
-    on tile[0]: distributor(i, c_inIO, c_outIO, c_control, workers); //thread to coordinate work on image
+    on tile[0]: distributor(i, event, c_inIO, c_outIO, workers); //thread to coordinate work on image
     on tile[0]: keepTime(i);
+    on tile[0]: eventHandler(buttons, leds, event, c_control);
     par (int i = 0; i < WORKERS; i++) {
         on tile[1]: worker(workers[i]);
     }

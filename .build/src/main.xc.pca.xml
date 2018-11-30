@@ -6,11 +6,13 @@
 <fDef name="_safe_memset" global="true" noreturn="false" doNotSpecialize="true" numParams="3"/>
 <fDef name="ack_read_request" global="true" interface="i2c_slave_callback_if" noreturn="false" doNotSpecialize="false" numParams="0"/>
 <fDef name="ack_write_request" global="true" interface="i2c_slave_callback_if" noreturn="false" doNotSpecialize="false" numParams="0"/>
+<fDef name="buttons" global="true" interface="event_iface" noreturn="false" doNotSpecialize="false" numParams="0"/>
 <fDef name="checkCell" global="true" noreturn="false" doNotSpecialize="false" numParams="3"/>
 <fDef name="delay_microseconds" global="true" noreturn="false" doNotSpecialize="true" numParams="1"/>
 <fDef name="delay_milliseconds" global="true" noreturn="false" doNotSpecialize="true" numParams="1"/>
 <fDef name="delay_seconds" global="true" noreturn="false" doNotSpecialize="true" numParams="1"/>
 <fDef name="distributor" global="true" noreturn="false" doNotSpecialize="false" numParams="5"/>
+<fDef name="eventHandler" global="true" noreturn="true" doNotSpecialize="false" numParams="4"/>
 <fDef name="getCell" global="true" noreturn="false" doNotSpecialize="false" numParams="3"/>
 <fDef name="getCellFinal" global="true" noreturn="false" doNotSpecialize="false" numParams="3"/>
 <fDef name="getCellRow" global="true" noreturn="false" doNotSpecialize="false" numParams="3"/>
@@ -19,11 +21,14 @@
 <fDef name="get_read_data" global="true" interface="i2c_master_async_if" noreturn="false" doNotSpecialize="false" numParams="2"/>
 <fDef name="get_write_result" global="true" interface="i2c_master_async_if" noreturn="false" doNotSpecialize="false" numParams="1"/>
 <fDef name="keepTime" global="true" noreturn="true" doNotSpecialize="false" numParams="1"/>
+<fDef name="light" global="true" interface="event_iface" noreturn="false" doNotSpecialize="false" numParams="1"/>
+<fDef name="liveCells" global="true" noreturn="false" doNotSpecialize="false" numParams="1"/>
 <fDef name="main" global="true" noreturn="false" doNotSpecialize="false" numParams="0"/>
 <fDef name="master_requires_data" global="true" interface="i2c_slave_callback_if" noreturn="false" doNotSpecialize="false" numParams="0"/>
 <fDef name="master_sent_data" global="true" interface="i2c_slave_callback_if" noreturn="false" doNotSpecialize="false" numParams="1"/>
 <fDef name="operation_complete" global="true" interface="i2c_master_async_if" noreturn="false" doNotSpecialize="false" numParams="0"/>
 <fDef name="orientation" global="true" noreturn="true" doNotSpecialize="false" numParams="2"/>
+<fDef name="pause" global="true" interface="time_iface" noreturn="false" doNotSpecialize="false" numParams="0"/>
 <fDef name="printRow" global="true" noreturn="false" doNotSpecialize="false" numParams="1"/>
 <fDef name="printSlice" global="true" noreturn="false" doNotSpecialize="false" numParams="1"/>
 <fDef name="printWorld" global="true" noreturn="false" doNotSpecialize="false" numParams="1"/>
@@ -37,6 +42,7 @@
 <fDef name="send_stop_bit" global="true" interface="i2c_master_async_if" noreturn="false" doNotSpecialize="false" numParams="0"/>
 <fDef name="send_stop_bit" global="true" interface="i2c_master_if" noreturn="false" doNotSpecialize="false" numParams="0"/>
 <fDef name="setCell" global="true" noreturn="false" doNotSpecialize="false" numParams="4"/>
+<fDef name="showLEDs" global="true" noreturn="true" doNotSpecialize="false" numParams="2"/>
 <fDef name="shutdown" global="true" interface="i2c_master_async_if" noreturn="false" doNotSpecialize="false" numParams="0"/>
 <fDef name="shutdown" global="true" interface="i2c_master_if" noreturn="false" doNotSpecialize="false" numParams="0"/>
 <fDef name="shutdown" global="true" interface="i2c_slave_callback_if" noreturn="false" doNotSpecialize="false" numParams="0"/>
@@ -45,6 +51,8 @@
 <fDef name="start_read_request" global="true" interface="i2c_slave_callback_if" noreturn="false" doNotSpecialize="false" numParams="0"/>
 <fDef name="start_write_request" global="true" interface="i2c_slave_callback_if" noreturn="false" doNotSpecialize="false" numParams="0"/>
 <fDef name="stop_bit" global="true" interface="i2c_slave_callback_if" noreturn="false" doNotSpecialize="false" numParams="0"/>
+<fDef name="tilt" global="true" interface="event_iface" noreturn="false" doNotSpecialize="false" numParams="0"/>
+<fDef name="unpause" global="true" interface="time_iface" noreturn="false" doNotSpecialize="false" numParams="0"/>
 <fDef name="worker" global="true" noreturn="true" doNotSpecialize="false" numParams="1"/>
 <fDef name="write" global="true" interface="i2c_master_async_if" noreturn="false" doNotSpecialize="false" numParams="4"/>
 <fDef name="write" global="true" interface="i2c_master_if" noreturn="false" doNotSpecialize="false" numParams="5"/>
@@ -481,12 +489,12 @@
   </arg>
   <arg num="1">
     <values>
-      <value type="intval"><intval isSigned="true" val="16"/></value>
+      <value type="intval"><intval isSigned="true" val="128"/></value>
     </values>
   </arg>
   <arg num="2">
     <values>
-      <value type="intval"><intval isSigned="true" val="16"/></value>
+      <value type="intval"><intval isSigned="true" val="128"/></value>
     </values>
   </arg>
 </fCall>
@@ -510,7 +518,7 @@
   </arg>
   <arg num="1">
     <values>
-      <value type="intval"><intval isSigned="true" val="16"/></value>
+      <value type="intval"><intval isSigned="true" val="128"/></value>
     </values>
   </arg>
 </fCall>
@@ -823,6 +831,23 @@
     </values>
   </arg>
 </fCall>
+<fCall name="getCellFinal" global="true" numArgs="3">
+  <arg num="0">
+    <values>
+      <value type="unknown"/>
+    </values>
+  </arg>
+  <arg num="1">
+    <values>
+      <value type="unknown"/>
+    </values>
+  </arg>
+  <arg num="2">
+    <values>
+      <value type="unknown"/>
+    </values>
+  </arg>
+</fCall>
 <fCall name="printf" global="true" numArgs="3">
   <arg num="0">
     <values>
@@ -831,12 +856,12 @@
   </arg>
   <arg num="1">
     <values>
-      <value type="intval"><intval isSigned="true" val="16"/></value>
+      <value type="intval"><intval isSigned="true" val="128"/></value>
     </values>
   </arg>
   <arg num="2">
     <values>
-      <value type="intval"><intval isSigned="true" val="16"/></value>
+      <value type="intval"><intval isSigned="true" val="128"/></value>
     </values>
   </arg>
 </fCall>
@@ -846,6 +871,8 @@
       <value type="unknown"/>
     </values>
   </arg>
+</fCall>
+<fCall name="buttons" global="true" interface="event_iface" numArgs="0">
 </fCall>
 <fCall name="printf" global="true" numArgs="1">
   <arg num="0">
@@ -855,6 +882,131 @@
   </arg>
 </fCall>
 <fCall name="getTime" global="true" interface="time_iface" numArgs="0">
+</fCall>
+<fCall name="buttons" global="true" interface="event_iface" numArgs="0">
+</fCall>
+<fCall name="pause" global="true" interface="time_iface" numArgs="0">
+</fCall>
+<fCall name="light" global="true" interface="event_iface" numArgs="1">
+  <arg num="0">
+    <values>
+      <value type="unknown"/>
+    </values>
+  </arg>
+</fCall>
+<fCall name="printf" global="true" numArgs="1">
+  <arg num="0">
+    <values>
+      <value type="unknown"/>
+    </values>
+  </arg>
+</fCall>
+<fCall name="getCellFinal" global="true" numArgs="3">
+  <arg num="0">
+    <values>
+      <value type="unknown"/>
+    </values>
+  </arg>
+  <arg num="1">
+    <values>
+      <value type="unknown"/>
+    </values>
+  </arg>
+  <arg num="2">
+    <values>
+      <value type="unknown"/>
+    </values>
+  </arg>
+</fCall>
+<fCall name="light" global="true" interface="event_iface" numArgs="1">
+  <arg num="0">
+    <values>
+      <value type="unknown"/>
+    </values>
+  </arg>
+</fCall>
+<fCall name="unpause" global="true" interface="time_iface" numArgs="0">
+</fCall>
+<fCall name="tilt" global="true" interface="event_iface" numArgs="0">
+</fCall>
+<fCall name="pause" global="true" interface="time_iface" numArgs="0">
+</fCall>
+<fCall name="light" global="true" interface="event_iface" numArgs="1">
+  <arg num="0">
+    <values>
+      <value type="unknown"/>
+    </values>
+  </arg>
+</fCall>
+<fCall name="printf" global="true" numArgs="2">
+  <arg num="0">
+    <values>
+      <value type="unknown"/>
+    </values>
+  </arg>
+  <arg num="1">
+    <values>
+      <value type="unknown"/>
+    </values>
+  </arg>
+</fCall>
+<fCall name="printf" global="true" numArgs="2">
+  <arg num="0">
+    <values>
+      <value type="unknown"/>
+    </values>
+  </arg>
+  <arg num="1">
+    <values>
+      <value type="unknown"/>
+    </values>
+  </arg>
+</fCall>
+<fCall name="liveCells" global="true" numArgs="1">
+  <arg num="0">
+    <values>
+      <value type="unknown"/>
+    </values>
+  </arg>
+</fCall>
+<fCall name="printf" global="true" numArgs="2">
+  <arg num="0">
+    <values>
+      <value type="unknown"/>
+    </values>
+  </arg>
+  <arg num="1">
+    <values>
+      <value type="unknown"/>
+    </values>
+  </arg>
+</fCall>
+<fCall name="getTime" global="true" interface="time_iface" numArgs="0">
+</fCall>
+<fCall name="light" global="true" interface="event_iface" numArgs="1">
+  <arg num="0">
+    <values>
+      <value type="unknown"/>
+    </values>
+  </arg>
+</fCall>
+<fCall name="unpause" global="true" interface="time_iface" numArgs="0">
+</fCall>
+<fCall name="tilt" global="true" interface="event_iface" numArgs="0">
+</fCall>
+<fCall name="light" global="true" interface="event_iface" numArgs="1">
+  <arg num="0">
+    <values>
+      <value type="unknown"/>
+    </values>
+  </arg>
+</fCall>
+<fCall name="light" global="true" interface="event_iface" numArgs="1">
+  <arg num="0">
+    <values>
+      <value type="unknown"/>
+    </values>
+  </arg>
 </fCall>
 <fCall name="sendSlice" global="true" numArgs="3">
   <arg num="0">
@@ -904,19 +1056,21 @@
     </values>
   </arg>
 </fCall>
-<fCall name="printf" global="true" numArgs="2">
+<fCall name="printf" global="true" numArgs="1">
   <arg num="0">
     <values>
       <value type="unknown"/>
     </values>
   </arg>
-  <arg num="1">
+</fCall>
+<fCall name="printf" global="true" numArgs="1">
+  <arg num="0">
     <values>
       <value type="unknown"/>
     </values>
   </arg>
 </fCall>
-<fCall name="getCellFinal" global="true" numArgs="3">
+<fCall name="sprintf" global="true" numArgs="3">
   <arg num="0">
     <values>
       <value type="unknown"/>
@@ -928,20 +1082,6 @@
     </values>
   </arg>
   <arg num="2">
-    <values>
-      <value type="unknown"/>
-    </values>
-  </arg>
-</fCall>
-<fCall name="printf" global="true" numArgs="1">
-  <arg num="0">
-    <values>
-      <value type="unknown"/>
-    </values>
-  </arg>
-</fCall>
-<fCall name="printf" global="true" numArgs="1">
-  <arg num="0">
     <values>
       <value type="unknown"/>
     </values>
@@ -955,12 +1095,12 @@
   </arg>
   <arg num="1">
     <values>
-      <value type="intval"><intval isSigned="true" val="16"/></value>
+      <value type="intval"><intval isSigned="true" val="128"/></value>
     </values>
   </arg>
   <arg num="2">
     <values>
-      <value type="intval"><intval isSigned="true" val="16"/></value>
+      <value type="intval"><intval isSigned="true" val="128"/></value>
     </values>
   </arg>
 </fCall>
@@ -984,7 +1124,7 @@
   </arg>
   <arg num="1">
     <values>
-      <value type="intval"><intval isSigned="true" val="16"/></value>
+      <value type="intval"><intval isSigned="true" val="128"/></value>
     </values>
   </arg>
 </fCall>
@@ -1167,7 +1307,7 @@
   </arg>
   <arg num="1">
     <values>
-      <value type="unknown"/>
+      <value type="interface"><interfaceInfo index="0" type="chan" isYielding="false"/></value>
     </values>
   </arg>
   <arg num="2">
@@ -1190,6 +1330,28 @@
   <arg num="0">
     <values>
       <value type="interface"><interfaceInfo index="0" type="chan" isYielding="false"/></value>
+    </values>
+  </arg>
+</fCall>
+<fCall name="eventHandler" global="true" numArgs="4" impId="7">
+  <arg num="0">
+    <values>
+      <value type="unknown"/>
+    </values>
+  </arg>
+  <arg num="1">
+    <values>
+      <value type="unknown"/>
+    </values>
+  </arg>
+  <arg num="2">
+    <values>
+      <value type="interface"><interfaceInfo index="0" type="chan" isYielding="false"/></value>
+    </values>
+  </arg>
+  <arg num="3">
+    <values>
+      <value type="unknown"/>
     </values>
   </arg>
 </fCall>
