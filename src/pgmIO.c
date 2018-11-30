@@ -5,7 +5,7 @@ FILE *_OUTFP = NULL;
 
 /////////////////////////////////////////////////////////////////////////////////////////////
 //Line-wise pgm in:
-int _openinpgm(char fname[], int width, int height)
+int _openinpgm(const char fname[], int width, int height)
 {
 	char str[ 64 ];
     int inwidth, inheight;

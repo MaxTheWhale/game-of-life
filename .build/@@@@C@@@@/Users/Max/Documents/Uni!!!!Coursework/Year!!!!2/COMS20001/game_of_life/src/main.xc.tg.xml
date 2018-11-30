@@ -1,0 +1,370 @@
+<taskgraph>
+<task>
+  <name>delay_seconds</name>
+  <inFunction>delay_seconds</inFunction>
+  <calledFunction>delay_ticks_longlong</calledFunction>
+</task>
+<task>
+  <name>delay_milliseconds</name>
+  <inFunction>delay_milliseconds</inFunction>
+  <calledFunction>delay_ticks_longlong</calledFunction>
+</task>
+<task>
+  <name>delay_microseconds</name>
+  <inFunction>delay_microseconds</inFunction>
+  <calledFunction>delay_ticks_longlong</calledFunction>
+</task>
+<task>
+  <name>_safe_memcmp</name>
+  <inFunction>_safe_memcmp</inFunction>
+</task>
+<task>
+  <name>_safe_memmove</name>
+  <inFunction>_safe_memmove</inFunction>
+</task>
+<task>
+  <name>_safe_memset</name>
+  <inFunction>_safe_memset</inFunction>
+</task>
+<task>
+  <name>read_reg</name>
+  <inFunction>read_reg</inFunction>
+</task>
+<task>
+  <name>write_reg</name>
+  <inFunction>write_reg</inFunction>
+</task>
+<task>
+  <name>read_reg8_addr16</name>
+  <inFunction>read_reg8_addr16</inFunction>
+</task>
+<task>
+  <name>write_reg8_addr16</name>
+  <inFunction>write_reg8_addr16</inFunction>
+</task>
+<task>
+  <name>read_reg16</name>
+  <inFunction>read_reg16</inFunction>
+</task>
+<task>
+  <name>write_reg16</name>
+  <inFunction>write_reg16</inFunction>
+</task>
+<task>
+  <name>read_reg16_addr8</name>
+  <inFunction>read_reg16_addr8</inFunction>
+</task>
+<task>
+  <name>write_reg16_addr8</name>
+  <inFunction>write_reg16_addr8</inFunction>
+</task>
+<task>
+  <name>keepTime</name>
+  <inFunction>keepTime</inFunction>
+</task>
+<task>
+  <name>DataInStream</name>
+  <inFunction>DataInStream</inFunction>
+  <endOfSeqCalledFunction>printf</endOfSeqCalledFunction>
+</task>
+<task>
+  <name>getCell</name>
+  <inFunction>getCell</inFunction>
+</task>
+<task>
+  <name>sendSlice</name>
+  <inFunction>sendSlice</inFunction>
+</task>
+<task>
+  <name>setCell</name>
+  <inFunction>setCell</inFunction>
+</task>
+<task>
+  <name>checkCell</name>
+  <inFunction>checkCell</inFunction>
+</task>
+<task>
+  <name>worker</name>
+  <inFunction>worker</inFunction>
+</task>
+<task>
+  <name>getRow</name>
+  <inFunction>getRow</inFunction>
+</task>
+<task>
+  <name>getCellFinal</name>
+  <inFunction>getCellFinal</inFunction>
+</task>
+<task>
+  <name>printWorld</name>
+  <inFunction>printWorld</inFunction>
+</task>
+<task>
+  <name>liveCells</name>
+  <inFunction>liveCells</inFunction>
+</task>
+<task>
+  <name>distributor</name>
+  <inFunction>distributor</inFunction>
+</task>
+<task>
+  <name>DataOutStream</name>
+  <inFunction>DataOutStream</inFunction>
+</task>
+<task>
+  <name>orientation</name>
+  <inFunction>orientation</inFunction>
+</task>
+<task>
+  <name>eventHandler</name>
+  <inFunction>eventHandler</inFunction>
+</task>
+<task>
+  <name>main</name>
+  <inFunction>main</inFunction>
+</task>
+<task>
+  <name>_task_keepTime_0</name>
+  <inFunction>main</inFunction>
+  <parent>main</parent>
+  <calledFunction>keepTime</calledFunction>
+  <tile>tile[0]</tile>
+  <core>u0</core>
+  <inPar/>
+</task>
+<task>
+  <name>_task_eventHandler_1</name>
+  <inFunction>main</inFunction>
+  <parent>main</parent>
+  <calledFunction>eventHandler</calledFunction>
+  <tile>tile[0]</tile>
+  <core>u0</core>
+  <inPar/>
+</task>
+<task>
+  <name>_task_i2c_master_2</name>
+  <inFunction>main</inFunction>
+  <parent>main</parent>
+  <calledFunction>i2c_master</calledFunction>
+  <tile>tile[0]</tile>
+  <distributed/>
+  <inPar/>
+</task>
+<task>
+  <name>_task_orientation_3</name>
+  <inFunction>main</inFunction>
+  <parent>main</parent>
+  <calledFunction>orientation</calledFunction>
+  <tile>tile[0]</tile>
+  <core>4</core>
+  <inPar/>
+</task>
+<task>
+  <name>_task_DataOutStream_4</name>
+  <inFunction>main</inFunction>
+  <parent>main</parent>
+  <endOfSeqCalledFunction>DataOutStream</endOfSeqCalledFunction>
+  <tile>tile[0]</tile>
+  <core>5</core>
+  <inPar/>
+</task>
+<task>
+  <name>_task_distributor_5</name>
+  <inFunction>main</inFunction>
+  <parent>main</parent>
+  <calledFunction>distributor</calledFunction>
+  <tile>tile[0]</tile>
+  <core>6</core>
+  <inPar/>
+</task>
+<task>
+  <name>_task_6</name>
+  <inFunction>main</inFunction>
+  <parent>main</parent>
+  <core>7</core>
+  <inPar/>
+</task>
+<task>
+  <name>_task_worker_7</name>
+  <inFunction>main</inFunction>
+  <parent>_task_6</parent>
+  <calledFunction>worker</calledFunction>
+  <tile>tile[1]</tile>
+  <core>8</core>
+  <inPar/>
+</task>
+<task>
+  <name>_task_worker_8</name>
+  <inFunction>main</inFunction>
+  <parent>_task_6</parent>
+  <calledFunction>worker</calledFunction>
+  <tile>tile[1]</tile>
+  <core>9</core>
+  <inPar/>
+</task>
+<task>
+  <name>_task_worker_9</name>
+  <inFunction>main</inFunction>
+  <parent>_task_6</parent>
+  <calledFunction>worker</calledFunction>
+  <tile>tile[1]</tile>
+  <core>10</core>
+  <inPar/>
+</task>
+<task>
+  <name>_task_worker_10</name>
+  <inFunction>main</inFunction>
+  <parent>_task_6</parent>
+  <calledFunction>worker</calledFunction>
+  <tile>tile[1]</tile>
+  <core>11</core>
+  <inPar/>
+</task>
+<task>
+  <name>_task_worker_11</name>
+  <inFunction>main</inFunction>
+  <parent>_task_6</parent>
+  <calledFunction>worker</calledFunction>
+  <tile>tile[1]</tile>
+  <core>12</core>
+  <inPar/>
+</task>
+<task>
+  <name>_task_worker_12</name>
+  <inFunction>main</inFunction>
+  <parent>_task_6</parent>
+  <calledFunction>worker</calledFunction>
+  <tile>tile[1]</tile>
+  <core>13</core>
+  <inPar/>
+</task>
+<task>
+  <name>_task_worker_13</name>
+  <inFunction>main</inFunction>
+  <parent>_task_6</parent>
+  <calledFunction>worker</calledFunction>
+  <tile>tile[1]</tile>
+  <core>14</core>
+  <inPar/>
+</task>
+<task>
+  <name>_task_worker_14</name>
+  <inFunction>main</inFunction>
+  <parent>_task_6</parent>
+  <calledFunction>worker</calledFunction>
+  <tile>tile[1]</tile>
+  <core>15</core>
+  <inPar/>
+</task>
+<connection>
+  <ends>
+    <end task="_task_keepTime_0" type="server"/>
+    <end task="_task_distributor_5" type="client"/>
+  </ends>
+  <name>time_if</name>
+   <interface>time_iface</interface>
+</connection>
+<connection>
+  <ends>
+    <end task="_task_eventHandler_1" type="server"/>
+    <end task="_task_distributor_5" type="client"/>
+  </ends>
+  <name>event_if</name>
+   <interface>event_iface</interface>
+   <notification>newGeneration</notification>
+</connection>
+<connection>
+  <ends>
+    <end task="_task_eventHandler_1" type="chan"/>
+    <end task="_task_orientation_3" type="chan"/>
+  </ends>
+  <name>c_control</name>
+</connection>
+<connection>
+  <ends>
+    <end task="_task_i2c_master_2" type="server"/>
+    <end task="_task_orientation_3" type="client"/>
+  </ends>
+    <index>0</index>
+  <name>i2c</name>
+   <interface>i2c_master_if</interface>
+</connection>
+<connection>
+  <ends>
+    <end task="_task_DataOutStream_4" type="chan"/>
+    <end task="_task_distributor_5" type="chan"/>
+  </ends>
+  <name>c_inIO</name>
+</connection>
+<connection>
+  <ends>
+    <end task="_task_DataOutStream_4" type="chan"/>
+    <end task="_task_distributor_5" type="chan"/>
+  </ends>
+  <name>c_outIO</name>
+</connection>
+<connection>
+  <ends>
+    <end task="_task_distributor_5" type="chan"/>
+    <end task="_task_worker_7" type="chan"/>
+  </ends>
+    <index>0</index>
+  <name>c_workers</name>
+</connection>
+<connection>
+  <ends>
+    <end task="_task_distributor_5" type="chan"/>
+    <end task="_task_worker_8" type="chan"/>
+  </ends>
+    <index>1</index>
+  <name>c_workers</name>
+</connection>
+<connection>
+  <ends>
+    <end task="_task_distributor_5" type="chan"/>
+    <end task="_task_worker_9" type="chan"/>
+  </ends>
+    <index>2</index>
+  <name>c_workers</name>
+</connection>
+<connection>
+  <ends>
+    <end task="_task_distributor_5" type="chan"/>
+    <end task="_task_worker_10" type="chan"/>
+  </ends>
+    <index>3</index>
+  <name>c_workers</name>
+</connection>
+<connection>
+  <ends>
+    <end task="_task_distributor_5" type="chan"/>
+    <end task="_task_worker_11" type="chan"/>
+  </ends>
+    <index>4</index>
+  <name>c_workers</name>
+</connection>
+<connection>
+  <ends>
+    <end task="_task_distributor_5" type="chan"/>
+    <end task="_task_worker_12" type="chan"/>
+  </ends>
+    <index>5</index>
+  <name>c_workers</name>
+</connection>
+<connection>
+  <ends>
+    <end task="_task_distributor_5" type="chan"/>
+    <end task="_task_worker_13" type="chan"/>
+  </ends>
+    <index>6</index>
+  <name>c_workers</name>
+</connection>
+<connection>
+  <ends>
+    <end task="_task_distributor_5" type="chan"/>
+    <end task="_task_worker_14" type="chan"/>
+  </ends>
+    <index>7</index>
+  <name>c_workers</name>
+</connection>
+</taskgraph>

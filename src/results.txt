@@ -33,3 +33,9 @@ PARALLEL:
 256x256 x10: 1268.23, 1268.23, 1268.23
 512x512  x1: 512.16, 512.15, 512.16
 512x512 x10: 5121.63, 5121.63, 5121.63
+
+All results below for 512x512 x1:
+4 Workers different tile, synchronous channels: 644.3ms
+4 Workers different tile, streaming channels: 629.8ms
+4 Workers same tile, synchronous channels: 648.4ms
+4 Workers same tile, streaming channels: 636.0ms 
