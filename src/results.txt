@@ -21,6 +21,7 @@ SEQUENTIAL: (redo after fixing timer bug)
 256x256 x10: 5400.51, 5400.51, 5400.51
 512x512  x1: 2155.02, 2155.02, 2155.02
 512x512 x10: 21550, 21550, 21550
+x100: 224, 3663, 14650, 54005, 215500
 
 PARALLEL:
 16x16    x1: 0.53, 0.53, 0.53
@@ -33,9 +34,33 @@ PARALLEL:
 256x256 x10: 1268.23, 1268.23, 1268.23
 512x512  x1: 512.16, 512.15, 512.16
 512x512 x10: 5121.63, 5121.63, 5121.63
+x100: 53, 828, 3289, 12682, 51216
+
+PARALLEL:
+16x16   : 0.4, 37
+64x64   : 5.4, 541
+128x128 : 21.5, 2147
+256x256 : 82.9, 8292
+512x512 : 335.2, 33520
 
 All results below for 512x512 x1:
+2 Workers: 1224.2ms, x100 122421
 4 Workers different tile, synchronous channels: 644.3ms
 4 Workers different tile, streaming channels: 629.8ms
 4 Workers same tile, synchronous channels: 648.4ms
-4 Workers same tile, streaming channels: 636.0ms 
+4 Workers same tile, streaming channels: 636.0ms
+x100: 64434, 62978, 64846, 63603
+
+Currently the largest possible size is 1000x1000
+
+
+NEW TESTS WITH MORE THREADS:
+960x960 was used as it divides nicely
+2 threads : 4609.5ms
+4 threads : 2331.3ms
+6 threads : 1555.5ms
+8 threads : 1167.9ms
+10 threads: 935.8ms (this is the sweetspot)
+12 threads: 936.5ms
+
+Now the largest possible size is 1240x1240, at 1559.8ms/gen

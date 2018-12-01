@@ -15,8 +15,8 @@
 // Image width and height
 // Width must be a multiple of 8
 // Height must be a multiple of the number of workers
-#define IMWD 1240
-#define IMHT 1240
+#define IMWD 1200
+#define IMHT 1200
 // Set the image you want to load in here, or generate one on-board
 #define GENERATE 1
 const char fname[] = "128x128.pgm";
@@ -30,15 +30,15 @@ const char fname[] = "128x128.pgm";
 #define SLICE_SIZE (SLICEHT*LINE_SIZE)
 
 // The number of worker threads to run
-#define WORKERS 10
+#define WORKERS 12
 
 typedef unsigned char uchar;
 
 // Ports for the buttons, leds and i2c
-on tile[0]: port buttons = XS1_PORT_4E;
-on tile[0]: port leds = XS1_PORT_4F;
-on tile[0]: port p_scl = XS1_PORT_1E;
-on tile[0]: port p_sda = XS1_PORT_1F;
+on tile[1]: port buttons = XS1_PORT_4E;
+on tile[1]: port leds = XS1_PORT_4F;
+on tile[1]: port p_scl = XS1_PORT_1E;
+on tile[1]: port p_sda = XS1_PORT_1F;
 
 // Register addresses for orientation
 #define FXOS8700EQ_I2C_ADDR 0x1E
@@ -194,41 +194,36 @@ uchar checkCell(uchar image[SLICEHT][LINE_SIZE], uchar x, uchar y) {
     return result;
 }
 
-// Counts the number of currently living cells
-int liveCells(uchar slice[SLICEHT][LINE_SIZE]) {
-    int count = 0;
-    for (int y = 1; y < ROWHT + 1; y++) {
-        for (int x = 0; x < IMWD; x++) {
-            if (getCell(slice, x, y)) count++;
-        }
-    }
-    return count;
-}
-
 // ODD workers receive top row from EVEN workers
 // ODD workers receive bottom row from EVEN workers
 // EVEN workers receive top row from ODD workers
 // EVEN workers receive bottom row from ODD workers
-void worker(chanend c_dist) {
+void worker(int id, chanend c_dist, chanend c_up, chanend c_down) {
     uchar slice[2][SLICEHT][LINE_SIZE];
     int input = 0;
     int output = 1;
+    int oddId = (id % 2);
     for (int y = 1; y < ROWHT + 1; y++) {
         for (int x = 0; x < LINE_SIZE; x++) {
             c_dist :> slice[input][y][x];
         }
     }
-
+    uchar start; c_dist :> start;
     while (1) {
         for (int x = 0; x < LINE_SIZE; x++)
         {
-            c_dist <: slice[input][1][x];
-            c_dist <: slice[input][ROWHT][x];
-        }
-        for (int x = 0; x < LINE_SIZE; x++)
-        {
-            c_dist :> slice[input][0][x];
-            c_dist :> slice[input][ROWHT + 1][x];
+            if (oddId) {
+                c_up :> slice[input][0][x];
+                c_down :> slice[input][ROWHT + 1][x];
+                c_down <: slice[input][ROWHT][x];
+                c_up <: slice[input][1][x];
+            }
+            else {
+                c_down <: slice[input][ROWHT][x];
+                c_up <: slice[input][1][x];
+                c_up :> slice[input][0][x];
+                c_down :> slice[input][ROWHT + 1][x];
+            }
         }
         for (int y = 1; y < ROWHT + 1; y++) {
             for (int x = 0; x < IMWD; x++) {
@@ -236,20 +231,16 @@ void worker(chanend c_dist) {
                 setCell(slice[output], x, y, value);
             }
         }
-        c_dist <: (uchar)1;
-        uchar exporting; c_dist :> exporting;
-        if (exporting) {
+        
+        uchar exportImage; c_dist :> exportImage;
+        if (exportImage) {
             for (int y = 1; y < ROWHT + 1; y++) {
                 for (int x = 0; x < LINE_SIZE; x++) {
                     c_dist <: slice[output][y][x];
                 }
             }
         }
-        uchar sendingInfo; c_dist :> sendingInfo;
-        if (sendingInfo) {
-            c_dist <: liveCells(slice[output]);
-        }
-        uchar resume; c_dist :> resume;
+        uchar pause; c_dist :> pause;
 
         input ^= 1;
         output ^= 1;
@@ -264,6 +255,32 @@ void getRow(uchar image[IMHT][LINE_SIZE], int i, chanend c) {
             c :> image[iy][x];
         }
     }
+}
+
+uchar getCellFinal(uchar image[IMHT][LINE_SIZE], uchar x, uchar y) {
+    return image[y][x / 8] & (1 << (x % 8)) ? 1 : 0;
+}
+
+// Testing function that prints the current image to the console
+void printWorld(uchar image[IMHT][LINE_SIZE]) {
+    for (int y = 0; y < IMHT; y++) {
+        for (int x = 0; x < IMWD; x++) {
+            char p = (getCellFinal(image, x, y)) ? 'X' : '.';
+            printf("%c", p);
+        }
+        printf("\n");
+    }
+}
+
+// Counts the number of currently living cells
+int liveCells(uchar image[IMHT][LINE_SIZE]) {
+    int count = 0;
+    for (int y = 0; y < IMHT; y++) {
+        for (int x = 0; x < IMWD; x++) {
+            if (getCellFinal(image, x, y)) count++;
+        }
+    }
+    return count;
 }
 
 // The distributor function is responsible for farming out the sections of the image to the worker threads,
@@ -295,30 +312,15 @@ void distributor(client interface time_iface time, client interface event_iface 
     }
     event.clear();
     delay_milliseconds(5000);
+    for (int w = 0; w < WORKERS; w++) {
+        workers[w] <: (uchar)1;
+    }
     int iterations = 0;
     int sTime = time.getTime();
-    uchar sliceTops[WORKERS][LINE_SIZE];
-    uchar sliceBottoms[WORKERS][LINE_SIZE];
-    
+
     // Main loop begins
     while (1) {
-        for (int w = 0; w < WORKERS; w++) {
-            for (int x = 0; x < LINE_SIZE; x++)
-            {
-                workers[w] :> sliceBottoms[w][x];
-                workers[w] :> sliceTops[w][x];
-            }
-        }
-        for (int w = 0; w < WORKERS; w++) {
-            for (int x = 0; x < LINE_SIZE; x++)
-            {
-                workers[w] <: sliceTops[(w + 1) % WORKERS][x];
-                workers[w] <: sliceBottoms[(w + 7) % WORKERS][x];
-            }
-        }
-        for (int w = 0; w < WORKERS; w++) {
-            uchar waiting; workers[w] :> waiting;
-        }
+        
         iterations++;
 
         // Check if we've been told to export the image
@@ -356,16 +358,9 @@ void distributor(client interface time_iface time, client interface event_iface 
         // Check if we've been told to pause and print info
         if (event.sendInfo()) {
             time.pause();
-            int totalLiving = 0;
-            for (int w = 0; w < WORKERS; w++) {
-                workers[w] <: (uchar)1;
-                int living;
-                workers[w] :> living;
-                totalLiving += living;
-            }
 
             printf("\n%d generations completed\n", iterations);
-            printf("%d cells alive\n", totalLiving);
+            //printf("%d cells alive\n", liveCells(image));
             int totalTime = time.getTime() - sTime;
             printf("%dms total processing time, %.1fms per generation\n", totalTime, totalTime / (float)iterations);
 
@@ -376,15 +371,12 @@ void distributor(client interface time_iface time, client interface event_iface 
             event.clear();
             time.unpause();
         }
-        else {
-            for (int w = 0; w < WORKERS; w++) {
-                workers[w] <: (uchar)0;
-            }
-        }
         event.newGeneration();
         for (int w = 0; w < WORKERS; w++) {
             workers[w] <: (uchar)1;
         }
+
+        // Inform the event handler that a new generation is beginning
     }
 }
 
@@ -560,19 +552,20 @@ int main() {
     // Channel definitions
     chan c_inIO, c_outIO, c_control;
     chan c_workers[WORKERS];
+    chan c_links[WORKERS];
 
     par {
-        on tile[0].core[0]: keepTime(time_if);                                    // Timer thread
-        on tile[0].core[0]: eventHandler(buttons, leds, event_if, c_control);     // Event handler
-        on tile[0]: i2c_master(i2c, 1, p_scl, p_sda, 10);                         // Server thread providing orientation data
-        on tile[0]: orientation(i2c[0], c_control);                               // Client thread reading orientation data
-        on tile[1]: {DataInStream(fname, c_inIO); DataOutStream(fname, c_outIO);} // Thread for image input and output (we can save a core as they don't need to run simultaneously)
-        on tile[1]: distributor(time_if, event_if, c_inIO, c_outIO, c_workers);   // Thread to coordinate work on image
+        on tile[1].core[0]: keepTime(time_if);                                    // Timer thread
+        on tile[1].core[0]: eventHandler(buttons, leds, event_if, c_control);     // Event handler
+        on tile[1]: i2c_master(i2c, 1, p_scl, p_sda, 10);                         // Server thread providing orientation data
+        on tile[1]: orientation(i2c[0], c_control);                               // Client thread reading orientation data
+        on tile[0]: {DataInStream(fname, c_inIO); DataOutStream(fname, c_outIO);} // Thread for image input and output (we can save a core as they don't need to run simultaneously)
+        on tile[0]: distributor(time_if, event_if, c_inIO, c_outIO, c_workers);   // Thread to coordinate work on image
         par (int i = 0; i < WORKERS / 2; i++) {
-            on tile[0]: worker(c_workers[i]);                                     // Worker threads
+            on tile[0]: worker(i, c_workers[i], c_links[i], c_links[(i + 1) % WORKERS]);                                     // Worker threads
         }
         par (int i = WORKERS / 2; i < WORKERS; i++) {
-            on tile[1]: worker(c_workers[i]);                                     // Worker threads
+            on tile[1]: worker(i, c_workers[i], c_links[i], c_links[(i + 1) % WORKERS]);                                     // Worker threads
         }
     }
     return 0;
