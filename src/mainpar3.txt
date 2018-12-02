@@ -15,13 +15,11 @@
 // Image width and height
 // Width must be a multiple of 8
 // Height must be a multiple of the number of workers
-#define IMWD 512
-#define IMHT 512
+#define IMWD 16
+#define IMHT 16
 // Set the image you want to load in here, or generate one on-board
 #define GENERATE 0
-const char fname[] = "512x512.pgm";
-// The number of worker threads to run
-#define WORKERS 8
+const char fname[] = "test.pgm";
 
 // Various constants to help work with the image structure
 #define LINE_SIZE (IMWD/8)
@@ -30,6 +28,9 @@ const char fname[] = "512x512.pgm";
 #define SLICEHT (ROWHT+2)
 #define ROW_SIZE (ROWHT*LINE_SIZE)
 #define SLICE_SIZE (SLICEHT*LINE_SIZE)
+
+// The number of worker threads to run
+#define WORKERS 8
 
 typedef unsigned char uchar;
 
@@ -137,41 +138,58 @@ void DataInStream(const char infname[], chanend c_out)
 }
 
 // Gets the value of a cell given its x and y coordinates
-uchar getCell(uchar slice[SLICEHT][LINE_SIZE], uint x, uint y){
-    return slice[y][x / 8] & (1 << (x % 8)) ? 1 : 0;
+uchar getCell(uchar image[SLICEHT][LINE_SIZE], uchar x, uchar y){
+    return image[y][x/8] & (1 << (x % 8)) ? 1 : 0;
+}
+
+// Sends a SLICE to worker i
+void sendSlice(uchar image[IMHT][LINE_SIZE], int i, chanend c) {
+    for (int y = (ROWHT * i) - 1; y < ((ROWHT * i) - 1 + SLICEHT); y++) {
+        int iy = (y+IMHT) % IMHT;
+        for (int x = 0; x < (LINE_SIZE); x++) {
+            c <: image[iy][x];
+        }
+    }
+}
+
+// Set the cell at coordinates x, y based on the value v
+void setCell(uchar image[SLICEHT][LINE_SIZE], uchar x, uchar y, uchar v){
+    if (v) {
+        image[y][(x / 8)] |= (1 << (x % 8));
+    }
+    else {
+        image[y][(x / 8)] &= ~(1 << (x % 8));
+    }
 }
 
 // The main logic function for the game of life.
 // It returns whether the cell at x, y should be alive or dead next round
 // by counting the number of living neighbours.
-uchar processCells(uchar slice[SLICEHT][LINE_SIZE], uint xb, uint y) {
+uchar checkCell(uchar image[SLICEHT][LINE_SIZE], uchar x, uchar y) {
+    uchar living = getCell(image, x, y);
+    uchar neighbours = 0;
     uchar result = 0;
-    uint ym = (y - 1);
-    uint yp = (y + 1);
-    for (int b = 0; b < 8; b++) {
-        uint x = (xb * 8) + b;
-        uchar living = getCell(slice, x, y);
-        uchar neighbours = 0;
+    uchar ym = (y - 1); ym %= IMHT;
+    uchar yp = (y + 1); yp %= IMHT;
+    uchar xm = (x - 1); xm %= IMWD;
+    uchar xp = (x + 1); xp %= IMWD;
 
-        uint xm = (x - 1); xm %= IMWD;
-        uint xp = (x + 1); xp %= IMWD;
+    neighbours += getCell(image, xm, ym);
+    neighbours += getCell(image, x, ym);
+    neighbours += getCell(image, xp, ym);
 
-        neighbours += getCell(slice, xm, ym);
-        neighbours += getCell(slice, x, ym);
-        neighbours += getCell(slice, xp, ym);
+    neighbours += getCell(image, xm, y);
+    neighbours += getCell(image, xp, y);
 
-        neighbours += getCell(slice, xm, y);
-        neighbours += getCell(slice, xp, y);
+    neighbours += getCell(image, xm, yp);
+    neighbours += getCell(image, x, yp);
+    neighbours += getCell(image, xp, yp);
 
-        neighbours += getCell(slice, xm, yp);
-        neighbours += getCell(slice, x, yp);
-        neighbours += getCell(slice, xp, yp);
-        if (neighbours == 3) {
-            result |= (1 << b);
-        }
-        else if (neighbours == 2 && living) {
-            result |= (1 << b);
-        }
+    if (living != 0) {
+        result = (neighbours == 2 || neighbours == 3) ? 255 : 0;
+    }
+    else {
+        result = (neighbours == 3) ? 255 : 0;
     }
     return result;
 }
@@ -192,32 +210,32 @@ int liveCells(uchar slice[SLICEHT][LINE_SIZE]) {
 // EVEN workers receive top row from ODD workers
 // EVEN workers receive bottom row from ODD workers
 void worker(chanend c_dist) {
-    uchar slice[SLICEHT][LINE_SIZE];
-    uchar lineBuffer[2][LINE_SIZE];
+    uchar slice[2][SLICEHT][LINE_SIZE];
+    int input = 0;
+    int output = 1;
     for (int y = 1; y < ROWHT + 1; y++) {
         for (int x = 0; x < LINE_SIZE; x++) {
-            c_dist :> slice[y][x];
+            c_dist :> slice[input][y][x];
         }
     }
 
     while (1) {
         for (int x = 0; x < LINE_SIZE; x++)
         {
-            c_dist <: slice[1][x];
-            c_dist <: slice[ROWHT][x];
+            // Send inner top and bottom lines to distributor
+            c_dist <: slice[input][1][x];
+            c_dist <: slice[input][ROWHT][x];
         }
         for (int x = 0; x < LINE_SIZE; x++)
         {
-            c_dist :> slice[0][x];
-            c_dist :> slice[ROWHT + 1][x];
+            // Receive outer top and bottom lines from distributor
+            c_dist :> slice[input][0][x];
+            c_dist :> slice[input][ROWHT + 1][x];
         }
         for (int y = 1; y < ROWHT + 1; y++) {
-            for (int x = 0; x < LINE_SIZE; x++) {
-                lineBuffer[y % 2][x] = processCells(slice, x, y);
-            }
-            for (int x = 0; x < LINE_SIZE; x++) {
-                if (y > 1) slice[y - 1][x] = lineBuffer[!(y % 2)][x];
-                if (y == ROWHT) slice[y][x] = lineBuffer[y % 2][x];
+            for (int x = 0; x < IMWD; x++) {
+                uchar value = checkCell(slice[input], x, y);
+                setCell(slice[output], x, y, value);
             }
         }
         c_dist <: (uchar)1;
@@ -225,15 +243,28 @@ void worker(chanend c_dist) {
         if (exporting) {
             for (int y = 1; y < ROWHT + 1; y++) {
                 for (int x = 0; x < LINE_SIZE; x++) {
-                    c_dist <: slice[y][x];
+                    c_dist <: slice[output][y][x];
                 }
             }
         }
         uchar sendingInfo; c_dist :> sendingInfo;
         if (sendingInfo) {
-            c_dist <: liveCells(slice);
+            c_dist <: liveCells(slice[output]);
         }
         uchar resume; c_dist :> resume;
+
+        input ^= 1;
+        output ^= 1;
+    }
+}
+
+// Function to receive the ROW back from the worker
+void getRow(uchar image[IMHT][LINE_SIZE], int i, chanend c) {
+    for (int y = 0; y < (ROWHT); y++) {
+        int iy = y + (ROWHT * i);
+        for (int x = 0; x < (LINE_SIZE); x++) {
+            c :> image[iy][x];
+        }
     }
 }
 
@@ -325,7 +356,7 @@ void distributor(client interface time_iface time, client interface event_iface 
         }
 
         // Check if we've been told to pause and print info
-        if (event.sendInfo() || iterations == 100) {
+        if (event.sendInfo()) {
             time.pause();
             int totalLiving = 0;
             for (int w = 0; w < WORKERS; w++) {

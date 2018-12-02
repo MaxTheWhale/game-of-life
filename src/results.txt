@@ -23,7 +23,7 @@ SEQUENTIAL: (redo after fixing timer bug)
 512x512 x10: 21550, 21550, 21550
 x100: 224, 3663, 14650, 54005, 215500
 
-PARALLEL:
+PARALLEL (8 threads on one tile):
 16x16    x1: 0.53, 0.53, 0.53
 16x16   x10: 5.27, 5.27, 5.27
 64x64    x1: 8.23, 8.23, 8.23
@@ -36,7 +36,7 @@ PARALLEL:
 512x512 x10: 5121.63, 5121.63, 5121.63
 x100: 53, 828, 3289, 12682, 51216
 
-PARALLEL:
+PARALLEL (8 threads across both tiles):
 16x16   : 0.4, 37
 64x64   : 5.4, 541
 128x128 : 21.5, 2147
@@ -64,3 +64,13 @@ NEW TESTS WITH MORE THREADS:
 12 threads: 936.5ms
 
 Now the largest possible size is 1240x1240, at 1559.8ms/gen
+
+Now the largest possible size is 1720x1720, at 2575.3ms/gen
+(completely dead world at same size is 2571.4ms/gen, so initial conditions make virtually no difference)
+
+PARALLEL FINAL TESTS:
+16x16   : 
+64x64   : 
+128x128 : 
+256x256 : 
+512x512 : 238.6, 23858
