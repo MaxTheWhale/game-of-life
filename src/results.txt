@@ -65,12 +65,12 @@ NEW TESTS WITH MORE THREADS:
 
 Now the largest possible size is 1240x1240, at 1559.8ms/gen
 
-Now the largest possible size is 1720x1720, at 2575.3ms/gen
-(completely dead world at same size is 2571.4ms/gen, so initial conditions make virtually no difference)
+Now the largest possible size is 1720x1720, at 2106.4ms/gen
+(completely dead world at same size is 2102.7ms/gen, so initial conditions make virtually no difference)
 
 PARALLEL FINAL TESTS:
-16x16   : 
-64x64   : 
-128x128 : 
-256x256 : 
-512x512 : 238.6, 23858
+16x16   : 0.3, 28
+64x64   : 3.8, 375
+128x128 : 14.6, 1463
+256x256 : 57.2, 5715
+512x512 : 235.8, 23580

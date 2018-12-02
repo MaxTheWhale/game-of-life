@@ -15,11 +15,11 @@
 // Image width and height
 // Width must be a multiple of 8
 // Height must be a multiple of the number of workers
-#define IMWD 512
-#define IMHT 512
+#define IMWD 64
+#define IMHT 64
 // Set the image you want to load in here, or generate one on-board
 #define GENERATE 0
-const char fname[] = "512x512.pgm";
+const char fname[] = "64x64.pgm";
 // The number of worker threads to run
 #define WORKERS 8
 
@@ -96,20 +96,22 @@ void keepTime(server interface time_iface i) {
     }
 }
 
-// Loads the pgm file in and sends it down a channel
+// Loads the PGM file in and sends it down a channel
 void DataInStream(const char infname[], chanend c_out)
 {
     int res;
         uchar line[IMWD];
         printf("DataInStream: Start...\n");
 
+        // If we're generating the image, then we make it a grid of 3-cell blinkers. This means the resulting image will have a lot of activity.
         if (GENERATE) {
             for (int y = 0; y < IMHT; y++) {
                 for (int x = 0; x < IMWD; x++) {
-                    if (!(y % 4) && (x % 4)) {
-                        c_out <: (uchar)255;
-                    }
-                    else {
+                    // This if statement makes it so this pattern is repeated over and over
+                    if (!(y % 4) && (x % 4)) {    // X X X .
+                        c_out <: (uchar)255;      // . . . .
+                    }                             // . . . .
+                    else {                        // . . . .
                         c_out <: (uchar)0;
                     }
                 }
@@ -136,47 +138,56 @@ void DataInStream(const char infname[], chanend c_out)
         printf("DataInStream: Done...\n");
 }
 
-// Gets the value of a cell given its x and y coordinates
+// Gets the value of a cell given its x and y coordinates within a SLICE
 uchar getCell(uchar slice[SLICEHT][LINE_SIZE], uint x, uint y){
     return slice[y][x / 8] & (1 << (x % 8)) ? 1 : 0;
 }
 
-// The main logic function for the game of life.
-// It returns whether the cell at x, y should be alive or dead next round
-// by counting the number of living neighbours.
-uchar processCells(uchar slice[SLICEHT][LINE_SIZE], uint xb, uint y) {
-    uchar result = 0;
+// Processes the game of life for one line of a SLICE, writing the output into a separate line buffer
+void processCells(uchar slice[SLICEHT][LINE_SIZE], uchar line[LINE_SIZE], uint y) {
     uint ym = (y - 1);
     uint yp = (y + 1);
-    for (int b = 0; b < 8; b++) {
-        uint x = (xb * 8) + b;
-        uchar living = getCell(slice, x, y);
-        uchar neighbours = 0;
+    uint x = 0;
+    uint xm = IMWD - 1;
+    uint xp = 1;
+    // Loops through every byte in the line
+    for (int xb = 0; xb < LINE_SIZE; xb++) {
+        uchar result = 0;
+        // Calculates the new value for every bit in the byte
+        for (int b = 0; b < 8; b++) {
+            uchar living = getCell(slice, x, y);
+            uchar neighbours = 0;
 
-        uint xm = (x - 1); xm %= IMWD;
-        uint xp = (x + 1); xp %= IMWD;
+            // We count how many of the cells neighbours are alive
+            neighbours += getCell(slice, xm, ym);
+            neighbours += getCell(slice, x, ym);
+            neighbours += getCell(slice, xp, ym);
 
-        neighbours += getCell(slice, xm, ym);
-        neighbours += getCell(slice, x, ym);
-        neighbours += getCell(slice, xp, ym);
+            neighbours += getCell(slice, xm, y);
+            neighbours += getCell(slice, xp, y);
 
-        neighbours += getCell(slice, xm, y);
-        neighbours += getCell(slice, xp, y);
+            neighbours += getCell(slice, xm, yp);
+            neighbours += getCell(slice, x, yp);
+            neighbours += getCell(slice, xp, yp);
 
-        neighbours += getCell(slice, xm, yp);
-        neighbours += getCell(slice, x, yp);
-        neighbours += getCell(slice, xp, yp);
-        if (neighbours == 3) {
-            result |= (1 << b);
+            // If the cell should be alive next round, we set the appropriate bit in the output
+            if (neighbours == 3) {
+                result |= (1 << b);
+            }
+            else if (neighbours == 2 && living) {
+                result |= (1 << b);
+            }
+            // Increment coordinates for next cell
+            x++;
+            xm++; xm %= IMWD;
+            xp++; xp %= IMWD;
         }
-        else if (neighbours == 2 && living) {
-            result |= (1 << b);
-        }
+        // Write new byte to line buffer
+        line[xb] = result;
     }
-    return result;
 }
 
-// Counts the number of currently living cells
+// Counts the number of currently living cells in a ROW
 int liveCells(uchar slice[SLICEHT][LINE_SIZE]) {
     int count = 0;
     for (int y = 1; y < ROWHT + 1; y++) {
@@ -187,58 +198,70 @@ int liveCells(uchar slice[SLICEHT][LINE_SIZE]) {
     return count;
 }
 
-// ODD workers receive top row from EVEN workers
-// ODD workers receive bottom row from EVEN workers
-// EVEN workers receive top row from ODD workers
-// EVEN workers receive bottom row from ODD workers
+// The main worker function
 void worker(chanend c_dist) {
     uchar slice[SLICEHT][LINE_SIZE];
     uchar lineBuffer[2][LINE_SIZE];
+
+    // First receive a ROW from the distributor
     for (int y = 1; y < ROWHT + 1; y++) {
         for (int x = 0; x < LINE_SIZE; x++) {
             c_dist :> slice[y][x];
         }
     }
 
+    // Main loop begins
     while (1) {
+        // Send the top and bottom lines of the ROW to the distributor
         for (int x = 0; x < LINE_SIZE; x++)
         {
             c_dist <: slice[1][x];
             c_dist <: slice[ROWHT][x];
         }
+        // Receive the top and bottom lines of the SLICE back from the distributor
         for (int x = 0; x < LINE_SIZE; x++)
         {
             c_dist :> slice[0][x];
             c_dist :> slice[ROWHT + 1][x];
         }
+
+        // Main loop to calculate the new ROW
         for (int y = 1; y < ROWHT + 1; y++) {
+            // Write the new value of the line to the lineBuffer
+            processCells(slice, lineBuffer[y % 2], y);
             for (int x = 0; x < LINE_SIZE; x++) {
-                lineBuffer[y % 2][x] = processCells(slice, x, y);
-            }
-            for (int x = 0; x < LINE_SIZE; x++) {
+                // Write back the previous line to the ROW
                 if (y > 1) slice[y - 1][x] = lineBuffer[!(y % 2)][x];
+                // If it is the final line then write it back immediately
                 if (y == ROWHT) slice[y][x] = lineBuffer[y % 2][x];
             }
         }
+        // Notify the distributor that we have finished processing
         c_dist <: (uchar)1;
+
+        // Distributor tells us whether to export the image or not
         uchar exporting; c_dist :> exporting;
         if (exporting) {
+            // Send our ROW back to the distributor
             for (int y = 1; y < ROWHT + 1; y++) {
                 for (int x = 0; x < LINE_SIZE; x++) {
                     c_dist <: slice[y][x];
                 }
             }
         }
+
+        // Distributor tells us whether to send info or not
         uchar sendingInfo; c_dist :> sendingInfo;
         if (sendingInfo) {
+            // Send the distributor the amount of live cells in our ROW
             c_dist <: liveCells(slice);
         }
+        // Do not start the next generation until the distributor tells us to resume
         uchar resume; c_dist :> resume;
     }
 }
 
-// The distributor function is responsible for farming out the sections of the image to the worker threads,
-// and collecting the results back again. This process repeats continuously.
+// The distributor function is responsible for orchestrating the worker threads
 void distributor(client interface time_iface time, client interface event_iface event, chanend c_in, chanend c_out, chanend workers[WORKERS]) {
 
     printf("ProcessImage: Start, size = %dx%d\n", IMWD, IMHT);
@@ -248,11 +271,12 @@ void distributor(client interface time_iface time, client interface event_iface 
     select {
         case event.start(): break;
     }
+    printf("Processing...\n");
 
     // Read in the image from DataInStream, send to workers
-    printf("Processing...\n");
     for (int y = 0; y < IMHT; y++) {
         for (int x = 0; x < LINE_SIZE; x++) {
+            // This loop packs the bytes we receive from DataIn into individual bits
             uchar nextByte = 0;
             for (int b = 0; b < 8; b++) {
                 uchar tmp = 0;
@@ -261,25 +285,31 @@ void distributor(client interface time_iface time, client interface event_iface 
                     nextByte |= (1 << b);
                 }
             }
+            // Send the packed byte to the appropriate worker
             workers[y / ROWHT] <: nextByte;
         }
     }
     event.clear();
-    delay_milliseconds(5000);
+    delay_milliseconds(1000);
     int iterations = 0;
     int sTime = time.getTime();
+
+    // These are buffers to store the overlapping SLICE lines that the workers need from each other.
     uchar sliceTops[WORKERS][LINE_SIZE];
     uchar sliceBottoms[WORKERS][LINE_SIZE];
     
     // Main loop begins
     while (1) {
+        // Receive the SLICE tops and bottoms from the workers
         for (int w = 0; w < WORKERS; w++) {
             for (int x = 0; x < LINE_SIZE; x++)
             {
+                // The lines are sent to the appropriate place in the array with some arithmetic
                 workers[w] :> sliceBottoms[(w + 7) % WORKERS][x];
                 workers[w] :> sliceTops[(w + 1) % WORKERS][x];
             }
         }
+        // Send the SLICE tops and bottoms to the workers
         for (int w = 0; w < WORKERS; w++) {
             for (int x = 0; x < LINE_SIZE; x++)
             {
@@ -287,6 +317,7 @@ void distributor(client interface time_iface time, client interface event_iface 
                 workers[w] <: sliceBottoms[w][x];
             }
         }
+        // Wait for all workers to finish this round
         for (int w = 0; w < WORKERS; w++) {
             uchar waiting; workers[w] :> waiting;
         }
@@ -295,6 +326,7 @@ void distributor(client interface time_iface time, client interface event_iface 
         // Check if we've been told to export the image
         if (event.export()) {
             time.pause();
+            // Notify the workers that we're exporting
             for (int w = 0; w < WORKERS; w++) {
                 workers[w] <: (uchar)1;
             }
@@ -305,6 +337,7 @@ void distributor(client interface time_iface time, client interface event_iface 
             for (int y = 0; y < IMHT; y++) {
                 for (int x = 0; x < LINE_SIZE; x++) {
                     uchar nextByte = 0;
+                    // We receive the packed bytes from the workers and unpack them to send to DataOut
                     workers[y / ROWHT] :> nextByte;
                     for (int b = 0; b < 8; b++) {
                         if (nextByte & (1 << b)) {
@@ -314,20 +347,21 @@ void distributor(client interface time_iface time, client interface event_iface 
                     }
                 }
             }
-
             event.clear();
             time.unpause();
         }
         else {
+            // Notify workers not to export
             for (int w = 0; w < WORKERS; w++) {
                 workers[w] <: (uchar)0;
             }
         }
 
         // Check if we've been told to pause and print info
-        if (event.sendInfo() || iterations == 100) {
+        if (event.sendInfo()) {
             time.pause();
             int totalLiving = 0;
+            // Tell workers to send info and then receive their live cell counts
             for (int w = 0; w < WORKERS; w++) {
                 workers[w] <: (uchar)1;
                 int living;
@@ -348,11 +382,14 @@ void distributor(client interface time_iface time, client interface event_iface 
             time.unpause();
         }
         else {
+            // Notify workers not to send info
             for (int w = 0; w < WORKERS; w++) {
                 workers[w] <: (uchar)0;
             }
         }
+        // Tell the event handler a new generation is about to begin
         event.newGeneration();
+        // Notify workers to begin the next generation
         for (int w = 0; w < WORKERS; w++) {
             workers[w] <: (uchar)1;
         }
@@ -365,16 +402,22 @@ void DataOutStream(const char outfname[], chanend c_in) {
     uchar line[IMWD];
     char file_name[40];
 
+    // Loop forever so that we can export the image multiple times
     while (1) {
-        int iteration;
-        c_in :> iteration;
+        // Receive the generation number from the distributor
+        int currentGen;
+        c_in :> currentGen;
         printf("DataOutStream: Start...\n");
         if (GENERATE) {
-            sprintf(file_name, "%dx%d_gen%d.pgm", IMWD, IMHT, iteration);
+            // If we're generating the image, name the output based on the dimensions and current generation
+            sprintf(file_name, "%dx%d_gen%d.pgm", IMWD, IMHT, currentGen);
         }
         else {
-            sprintf(file_name, "%s_gen%d.pgm", outfname, iteration);
+            // Otherwise, use the input file name and current generation
+            sprintf(file_name, "%s_gen%d.pgm", outfname, currentGen);
         }
+
+        // Open the PGM image for writing
         res = _openoutpgm(file_name, IMWD, IMHT);
         if (res) {
             printf("DataOutStream: Error opening %s\n.", file_name);
@@ -452,13 +495,14 @@ void orientation(client interface i2c_master_if i2c, chanend toEvent) {
 // It controls whether the distributor should start, export the image, pause, or resume.
 [[combinable]]
 void eventHandler(in port buttonPort, out port ledPort, server interface event_iface i, chanend fromTilt) {
+    // Flags and LED state
     uchar sendInfo = 0;
     uchar exportImage = 0;
     int paused = 0;
     int started = 0;
-    int tilt = 0;
-    int buttons = 0;
     int leds = 0;
+
+    // Timing variables
     int period = 10000000; // 100ms period
     timer tmr;
     unsigned time = 0;
@@ -469,18 +513,23 @@ void eventHandler(in port buttonPort, out port ledPort, server interface event_i
             // We only poll the tilt and buttons every 100ms to be more efficient
             case tmr when timerafter(time + period) :> void:
                 time += period;
-                fromTilt :> tilt;
-                buttonPort :> buttons;
+                // Read from orientation thread and button port
+                int tilt; fromTilt :> tilt;
+                int buttons; buttonPort :> buttons;
                 uchar sw1 = (buttons & 1) ? 0 : 1;
                 uchar sw2 = (buttons & 2) ? 0 : 1;
                 if (started) {
+                    // If SW2 is pressed, set the export flag
                     if (sw2 && !exportImage) exportImage = 1;
+                    // If we're not paused and tilted, set the send info flag
                     if (tilt && !sendInfo && !paused) sendInfo = 1;
+                    // If we are paused and no longer tilted, unpause
                     if (!tilt && paused) {
                         i.start();
                     }
                 }
                 else if (sw1) {
+                    // If SW1 is pressed, light the green LED and tell the distributor to start
                     leds |= 4;
                     ledPort <: leds;
                     started = 1;
@@ -489,6 +538,7 @@ void eventHandler(in port buttonPort, out port ledPort, server interface event_i
                 }
                 break;
             case i.export() -> int output:
+                // If we're exporting the image, light the blue LED and pause
                 if (exportImage) {
                     leds |= 2;
                     ledPort <: leds;
@@ -498,6 +548,7 @@ void eventHandler(in port buttonPort, out port ledPort, server interface event_i
                 else output = 0;
                 break;
             case i.sendInfo() -> int output:
+                // If we're sending info, light the red LED and pause
                 if (sendInfo) {
                     leds |= 8;
                     ledPort <: leds;
@@ -507,12 +558,14 @@ void eventHandler(in port buttonPort, out port ledPort, server interface event_i
                 else output = 0;
                 break;
             case i.newGeneration():
+                // Every generation, toggle the green LED and clear the flags
                 leds ^= 1;
                 ledPort <: leds;
                 sendInfo = 0;
                 exportImage = 0;
                 break;
             case i.clear():
+                // Once an event has finished, clear the RGB LED and pause flag
                 leds &= ~14;
                 ledPort <: leds;
                 paused = 0;
@@ -537,13 +590,17 @@ int main() {
         on tile[0].core[0]: eventHandler(buttons, leds, event_if, c_control);     // Event handler
         on tile[0]: i2c_master(i2c, 1, p_scl, p_sda, 10);                         // Server thread providing orientation data
         on tile[0]: orientation(i2c[0], c_control);                               // Client thread reading orientation data
+
         on tile[1]: {DataInStream(fname, c_inIO); DataOutStream(fname, c_outIO);} // Thread for image input and output (we can save a core as they don't need to run simultaneously)
         on tile[1]: distributor(time_if, event_if, c_inIO, c_outIO, c_workers);   // Thread to coordinate work on image
+
+        // Run the first half the workers on tile 0
         par (int i = 0; i < WORKERS / 2; i++) {
-            on tile[0]: worker(c_workers[i]);                                     // Worker threads
+            on tile[0]: worker(c_workers[i]);
         }
+        // Run the second half of the workers on tile 1
         par (int i = WORKERS / 2; i < WORKERS; i++) {
-            on tile[1]: worker(c_workers[i]);                                     // Worker threads
+            on tile[1]: worker(c_workers[i]);
         }
     }
     return 0;
