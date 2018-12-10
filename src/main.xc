@@ -261,19 +261,8 @@ void worker(chanend c_dist) {
     }
 }
 
-// The distributor function is responsible for orchestrating the worker threads
-void distributor(client interface time_iface time, client interface event_iface event, chanend c_in, chanend c_out, chanend workers[WORKERS]) {
-
-    printf("ProcessImage: Start, size = %dx%d\n", IMWD, IMHT);
-    printf("Waiting for SW1 press...\n");
-
-    // Wait for the event handler to tell us to start
-    select {
-        case event.start(): break;
-    }
-    printf("Processing...\n");
-
-    // Read in the image from DataInStream, send to workers
+// This function is used to receive the image from DataIn and send it to the workers
+void distributeImage(chanend workers[WORKERS], chanend c_in) {
     for (int y = 0; y < IMHT; y++) {
         for (int x = 0; x < LINE_SIZE; x++) {
             // This loop packs the bytes we receive from DataIn into individual bits
@@ -289,34 +278,80 @@ void distributor(client interface time_iface time, client interface event_iface 
             workers[y / ROWHT] <: nextByte;
         }
     }
+}
+
+// Updates the tops and bottoms of the workers SLICEs ready for the next round
+void updateSlices(chanend workers[WORKERS]) {
+    // These are buffers to store the overlapping SLICE lines that the workers need from each other.
+    uchar sliceTops[WORKERS][LINE_SIZE];
+    uchar sliceBottoms[WORKERS][LINE_SIZE];
+    // Receive the SLICE tops and bottoms from the workers
+    for (int w = 0; w < WORKERS; w++) {
+        for (int x = 0; x < LINE_SIZE; x++)
+        {
+            // The lines are sent to the appropriate place in the array with some arithmetic
+            workers[w] :> sliceBottoms[(w + 7) % WORKERS][x];
+            workers[w] :> sliceTops[(w + 1) % WORKERS][x];
+        }
+    }
+    // Send the SLICE tops and bottoms to the workers
+    for (int w = 0; w < WORKERS; w++) {
+        for (int x = 0; x < LINE_SIZE; x++)
+        {
+            workers[w] <: sliceTops[w][x];
+            workers[w] <: sliceBottoms[w][x];
+        }
+    }
+}
+
+// Exports the image by receiving it from the workers and sending it to DataOut
+void exportImage(chanend workers[WORKERS], chanend c_out) {
+    for (int y = 0; y < IMHT; y++) {
+        for (int x = 0; x < LINE_SIZE; x++) {
+            uchar nextByte = 0;
+            // We receive the packed bytes from the workers and unpack them to send to DataOut
+            workers[y / ROWHT] :> nextByte;
+            for (int b = 0; b < 8; b++) {
+                if (nextByte & (1 << b)) {
+                    c_out <: (uchar)255;
+                }
+                else c_out <: (uchar)0;
+            }
+        }
+    }
+}
+
+// Helper function to notify all workers
+void notifyWorkers(uchar value, chanend workers[WORKERS]) {
+    for (int w = 0; w < WORKERS; w++) {
+        workers[w] <: value;
+    }
+}
+
+// The distributor function is responsible for orchestrating the worker threads
+void distributor(client interface time_iface time, client interface event_iface event, chanend c_in, chanend c_out, chanend workers[WORKERS]) {
+
+    printf("ProcessImage: Start, size = %dx%d\n", IMWD, IMHT);
+    printf("Waiting for SW1 press...\n");
+
+    // Wait for the event handler to tell us to start
+    select {
+        case event.start(): break;
+    }
+    printf("Processing...\n");
+
+    // Read in the image from DataInStream, send to workers
+    distributeImage(workers, c_in);
+
     event.clear();
     delay_milliseconds(1000);
     int iterations = 0;
     int sTime = time.getTime();
-
-    // These are buffers to store the overlapping SLICE lines that the workers need from each other.
-    uchar sliceTops[WORKERS][LINE_SIZE];
-    uchar sliceBottoms[WORKERS][LINE_SIZE];
     
     // Main loop begins
     while (1) {
-        // Receive the SLICE tops and bottoms from the workers
-        for (int w = 0; w < WORKERS; w++) {
-            for (int x = 0; x < LINE_SIZE; x++)
-            {
-                // The lines are sent to the appropriate place in the array with some arithmetic
-                workers[w] :> sliceBottoms[(w + 7) % WORKERS][x];
-                workers[w] :> sliceTops[(w + 1) % WORKERS][x];
-            }
-        }
-        // Send the SLICE tops and bottoms to the workers
-        for (int w = 0; w < WORKERS; w++) {
-            for (int x = 0; x < LINE_SIZE; x++)
-            {
-                workers[w] <: sliceTops[w][x];
-                workers[w] <: sliceBottoms[w][x];
-            }
-        }
+
+        updateSlices(workers);
         // Wait for all workers to finish this round
         for (int w = 0; w < WORKERS; w++) {
             uchar waiting; workers[w] :> waiting;
@@ -327,34 +362,19 @@ void distributor(client interface time_iface time, client interface event_iface 
         if (event.export()) {
             time.pause();
             // Notify the workers that we're exporting
-            for (int w = 0; w < WORKERS; w++) {
-                workers[w] <: (uchar)1;
-            }
+            notifyWorkers(1, workers);
 
             // Send the current generation and the image to DataOutStream
             printf("\nExporting current image\n");
             c_out <: iterations;
-            for (int y = 0; y < IMHT; y++) {
-                for (int x = 0; x < LINE_SIZE; x++) {
-                    uchar nextByte = 0;
-                    // We receive the packed bytes from the workers and unpack them to send to DataOut
-                    workers[y / ROWHT] :> nextByte;
-                    for (int b = 0; b < 8; b++) {
-                        if (nextByte & (1 << b)) {
-                            c_out <: (uchar)255;
-                        }
-                        else c_out <: (uchar)0;
-                    }
-                }
-            }
+            exportImage(workers, c_out);
+
             event.clear();
             time.unpause();
         }
         else {
             // Notify workers not to export
-            for (int w = 0; w < WORKERS; w++) {
-                workers[w] <: (uchar)0;
-            }
+            notifyWorkers(0, workers);
         }
 
         // Check if we've been told to pause and print info
@@ -362,8 +382,8 @@ void distributor(client interface time_iface time, client interface event_iface 
             time.pause();
             int totalLiving = 0;
             // Tell workers to send info and then receive their live cell counts
+            notifyWorkers(1, workers);
             for (int w = 0; w < WORKERS; w++) {
-                workers[w] <: (uchar)1;
                 int living;
                 workers[w] :> living;
                 totalLiving += living;
@@ -383,16 +403,12 @@ void distributor(client interface time_iface time, client interface event_iface 
         }
         else {
             // Notify workers not to send info
-            for (int w = 0; w < WORKERS; w++) {
-                workers[w] <: (uchar)0;
-            }
+            notifyWorkers(0, workers);
         }
         // Tell the event handler a new generation is about to begin
         event.newGeneration();
         // Notify workers to begin the next generation
-        for (int w = 0; w < WORKERS; w++) {
-            workers[w] <: (uchar)1;
-        }
+        notifyWorkers(1, workers);
     }
 }
 

@@ -69,8 +69,8 @@ Now the largest possible size is 1720x1720, at 2106.4ms/gen
 (completely dead world at same size is 2102.7ms/gen, so initial conditions make virtually no difference)
 
 PARALLEL FINAL TESTS:
-16x16   : 0.3, 28
-64x64   : 3.8, 375
-128x128 : 14.6, 1463
-256x256 : 57.2, 5715
-512x512 : 235.8, 23580
+16x16   : 0.28, 28
+64x64   : 3.75, 375
+128x128 : 14.63, 1463
+256x256 : 57.15, 5715
+512x512 : 235.80, 23580

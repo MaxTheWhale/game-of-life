@@ -1,6 +1,0 @@
-Distributor - takes n channel ends
-Worker - takes 1 channel end
-
-1. Distributor sends slice (including extra top and bottom row) to worker.
-2. Worker generates new slice (not including extra rows)
-3. Worker sends result back to Distributor
